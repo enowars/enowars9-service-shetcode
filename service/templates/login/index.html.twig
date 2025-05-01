@@ -38,10 +38,6 @@
                             <input type="text" class="form-control" id="register-username" name="username" required>
                         </div>
                         <div class="mb-3">
-                            <label for="email" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="register-email" name="email" required>
-                        </div>
-                        <div class="mb-3">
                             <label for="password" class="form-label">Password</label>
                             <input type="password" class="form-control" id="register-password" name="password" required>
                         </div>
@@ -65,7 +61,12 @@ document.addEventListener('DOMContentLoaded', function() {
             method: 'POST',
             body: new FormData(this),
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Server responded with status: ' + response.status);
+            }
+            return response.json();
+        })
         .then(data => {
             document.getElementById('response-message').innerHTML = 
                 '<div class="alert alert-' + (data.success ? 'success' : 'danger') + '">' + 
@@ -75,6 +76,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Redirect or update UI as needed
                 window.location.reload();
             }
+        })
+        .catch(error => {
+            document.getElementById('response-message').innerHTML = 
+                '<div class="alert alert-danger">Error: ' + error.message + '</div>';
+            console.error('Error:', error);
         });
     });
     
@@ -86,7 +92,12 @@ document.addEventListener('DOMContentLoaded', function() {
             method: 'POST',
             body: new FormData(this),
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Server responded with status: ' + response.status);
+            }
+            return response.json();
+        })
         .then(data => {
             document.getElementById('response-message').innerHTML = 
                 '<div class="alert alert-' + (data.success ? 'success' : 'danger') + '">' + 
@@ -96,6 +107,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Clear form
                 this.reset();
             }
+        })
+        .catch(error => {
+            document.getElementById('response-message').innerHTML = 
+                '<div class="alert alert-danger">Error: ' + error.message + '</div>';
+            console.error('Error:', error);
         });
     });
 });

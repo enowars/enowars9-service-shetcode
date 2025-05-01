@@ -3,10 +3,12 @@
 namespace App\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
+use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'users')]
-class User
+class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -16,11 +18,11 @@ class User
     #[ORM\Column(type: 'string', length: 180, unique: true)]
     private ?string $username = null;
 
-    #[ORM\Column(type: 'string', length: 180, unique: true)]
-    private ?string $email = null;
-
     #[ORM\Column(type: 'string')]
     private ?string $password = null;
+    
+    #[ORM\Column(type: 'boolean')]
+    private bool $isAdmin = false;
 
     public function getId(): ?int
     {
@@ -39,18 +41,6 @@ class User
         return $this;
     }
 
-    public function getEmail(): ?string
-    {
-        return $this->email;
-    }
-
-    public function setEmail(string $email): self
-    {
-        $this->email = $email;
-
-        return $this;
-    }
-
     public function getPassword(): ?string
     {
         return $this->password;
@@ -61,5 +51,37 @@ class User
         $this->password = $password;
 
         return $this;
+    }
+    
+    public function isAdmin(): bool
+    {
+        return $this->isAdmin;
+    }
+    
+    public function setIsAdmin(bool $isAdmin): self
+    {
+        $this->isAdmin = $isAdmin;
+        
+        return $this;
+    }
+    
+    public function getUserIdentifier(): string
+    {
+        return (string) $this->username;
+    }
+
+    public function getRoles(): array
+    {
+        $roles = ['USER'];
+
+        if ($this->isAdmin) {
+            $roles[] = 'ADMIN';
+        }
+
+        return array_unique($roles);
+    }
+
+    public function eraseCredentials(): void
+    {
     }
 } 

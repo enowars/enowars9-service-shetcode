@@ -2,9 +2,12 @@
 
 namespace App\Controller;
 
+use App\Entity\User;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Annotation\Route;
 
 class LoginController extends AbstractController
@@ -18,35 +21,71 @@ class LoginController extends AbstractController
     }
 
     #[Route('/login', name: 'login', methods: ['POST'])]
-    public function login(Request $request): Response
+    public function login(Request $request, EntityManagerInterface $entityManager, UserPasswordHasherInterface $passwordHasher): Response
     {
-        // Get username and password from request
         $username = $request->request->get('username');
         $password = $request->request->get('password');
-
-        // TODO: Add authentication logic here
-
-        // For now, just return a successful response
+        
+        $user = $entityManager->getRepository(User::class)->findOneBy(['username' => $username]);
+        
+        if (!$user) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Invalid credentials',
+            ], 401);
+        }
+        
+        if (!$passwordHasher->isPasswordValid($user, $password)) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Invalid credentials',
+            ], 401);
+        }
+        
         return $this->json([
             'success' => true,
             'message' => 'Login successful',
+            'user' => [
+                'id' => $user->getId(),
+                'username' => $user->getUsername(),
+                'isAdmin' => $user->isAdmin(),
+            ],
         ]);
     }
 
     #[Route('/register', name: 'register', methods: ['POST'])]
-    public function register(Request $request): Response
+    public function register(Request $request, EntityManagerInterface $entityManager, UserPasswordHasherInterface $passwordHasher): Response
     {
         // Get registration data from request
         $username = $request->request->get('username');
         $password = $request->request->get('password');
-        $email = $request->request->get('email');
+        
+        if ($entityManager->getRepository(User::class)->findOneBy(['username' => $username])) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Username already exists',
+            ], 400);
+        }
+        
+        $user = new User();
+        $user->setUsername($username);
+        
+        $hashedPassword = $passwordHasher->hashPassword($user, $password);
+        $user->setPassword($hashedPassword);
+        
 
-        // TODO: Add registration logic here
-
-        // For now, just return a successful response
+        $user->setIsAdmin(false);
+        
+        $entityManager->persist($user);
+        $entityManager->flush();
+        
         return $this->json([
             'success' => true,
             'message' => 'Registration successful',
+            'user' => [
+                'id' => $user->getId(),
+                'username' => $user->getUsername(),
+            ],
         ]);
     }
 }
