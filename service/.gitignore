@@ -1,6 +1,17 @@
 # Use https://gitignore.io/ to create a suitable .gitignore file for your project.
-data/
-var/
-vendor/
 .idea/
 node_modules/
+
+# Symfony env files
+/.env
+/.env.local
+/.env.dev
+/.env.*.local
+/.env.local.php
+/.env.*.local
+!/.env.example
+
+/config/secrets/prod/prod.decrypt.private.php
+/public/bundles/
+/var/
+/vendor/

@@ -1,24 +1,30 @@
-# Use a suitable base-image.
-FROM python:3-alpine
+FROM php:8.2-fpm
 
-# Create a seperate user and chown new directories if necessary
-RUN addgroup --system service
-RUN adduser --system --ingroup service --uid 1000 service
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    git \
+    unzip \
+    nginx \
+    && docker-php-ext-install pdo pdo_pgsql
 
-# Create our mapped data volume endpoint
-RUN mkdir /data/
+WORKDIR /var/www/html
 
-# Copy our entrypoint.sh and make it executable
-COPY entrypoint.sh /
-RUN chmod +x /entrypoint.sh
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy our service
-COPY src/ /service/
+# Configure Nginx
+COPY docker/nginx.conf /etc/nginx/sites-available/default
 
-# Change the working directory.
-WORKDIR /service/
-# Expose the service's port
-EXPOSE 8000
+# Make sure PHP-FPM and Nginx can write to var/log
+RUN mkdir -p var/log && chmod -R 777 var/log
 
-# Run the service
-ENTRYPOINT ["/entrypoint.sh"]
+# Set recommended PHP.ini settings
+RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
+
+# Start Nginx and PHP-FPM
+COPY docker/start.sh /usr/local/bin/start
+RUN chmod +x /usr/local/bin/start
+
+EXPOSE 80
+
+CMD ["/usr/local/bin/start"] 
