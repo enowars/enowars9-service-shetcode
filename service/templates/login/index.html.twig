@@ -1,0 +1,103 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Login / Register{% endblock %}
+
+{% block body %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Login</h3>
+                </div>
+                <div class="card-body">
+                    <form id="login-form" method="post" action="{{ path('login') }}">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="login-username" name="username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="login-password" name="password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Login</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Register</h3>
+                </div>
+                <div class="card-body">
+                    <form id="register-form" method="post" action="{{ path('register') }}">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="register-username" name="username" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="register-email" name="email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="register-password" name="password" required>
+                        </div>
+                        <button type="submit" class="btn btn-success">Register</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-4" id="response-message"></div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Login form submission
+    document.getElementById('login-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        fetch('{{ path('login') }}', {
+            method: 'POST',
+            body: new FormData(this),
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('response-message').innerHTML = 
+                '<div class="alert alert-' + (data.success ? 'success' : 'danger') + '">' + 
+                data.message + '</div>';
+                
+            if (data.success) {
+                // Redirect or update UI as needed
+                window.location.reload();
+            }
+        });
+    });
+    
+    // Register form submission
+    document.getElementById('register-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        fetch('{{ path('register') }}', {
+            method: 'POST',
+            body: new FormData(this),
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('response-message').innerHTML = 
+                '<div class="alert alert-' + (data.success ? 'success' : 'danger') + '">' + 
+                data.message + '</div>';
+                
+            if (data.success) {
+                // Clear form
+                this.reset();
+            }
+        });
+    });
+});
+</script>
+{% endblock %} 
