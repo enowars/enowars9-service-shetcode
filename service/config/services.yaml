@@ -22,3 +22,8 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+    App\Security\CustomPasswordHasher:
+        arguments:
+            $iterations: 5000  # Reasonable iteration count for security that won't crash
+            $pepper: '%env(default::HASH_PEPPER)%'
