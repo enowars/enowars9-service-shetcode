@@ -3,11 +3,11 @@
 namespace App\Controller;
 
 use App\Entity\User;
-use App\Security\PasswordHasher;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Annotation\Route;
 
 class LoginController extends AbstractController
@@ -21,7 +21,7 @@ class LoginController extends AbstractController
     }
 
     #[Route('/login', name: 'login', methods: ['POST'])]
-    public function login(Request $request, EntityManagerInterface $entityManager, PasswordHasher $passwordHasher): Response
+    public function login(Request $request, EntityManagerInterface $entityManager, UserPasswordHasherInterface $passwordHasher): Response
     {
         $username = $request->request->get('username');
         $password = $request->request->get('password');
@@ -35,7 +35,7 @@ class LoginController extends AbstractController
             ], 401);
         }
         
-        if (!$passwordHasher->verify($user->getPassword(), $password)) {
+        if (!$passwordHasher->isPasswordValid($user, $password)) {
             return $this->json([
                 'success' => false,
                 'message' => 'Invalid credentials',
@@ -54,7 +54,7 @@ class LoginController extends AbstractController
     }
 
     #[Route('/register', name: 'register', methods: ['POST'])]
-    public function register(Request $request, EntityManagerInterface $entityManager, PasswordHasher $passwordHasher): Response
+    public function register(Request $request, EntityManagerInterface $entityManager, UserPasswordHasherInterface $passwordHasher): Response
     {
         // Get registration data from request
         $username = $request->request->get('username');
@@ -70,10 +70,10 @@ class LoginController extends AbstractController
         $user = new User();
         $user->setUsername($username);
         
-        $hashedPassword = $passwordHasher->hash($password);
-
+        $hashedPassword = $passwordHasher->hashPassword($user, $password);
         $user->setPassword($hashedPassword);
-    
+        
+
         $user->setIsAdmin(false);
         
         $entityManager->persist($user);
