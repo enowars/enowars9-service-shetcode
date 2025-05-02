@@ -13,8 +13,12 @@ use Symfony\Component\Routing\Annotation\Route;
 class LoginController extends AbstractController
 {
     #[Route('/', name: 'home', methods: ['GET'])]
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        if ($request->getSession()->get('user_id')) {
+            return $this->redirectToRoute('problems_list');
+        }
+        
         return $this->render('login/index.html.twig', [
             'controller_name' => 'LoginController',
         ]);
@@ -42,6 +46,11 @@ class LoginController extends AbstractController
             ], 401);
         }
         
+        $session = $request->getSession();
+        $session->set('user_id', $user->getId());
+        $session->set('username', $user->getUsername());
+        $session->set('is_admin', $user->isAdmin());
+        
         return $this->json([
             'success' => true,
             'message' => 'Login successful',
@@ -50,13 +59,13 @@ class LoginController extends AbstractController
                 'username' => $user->getUsername(),
                 'isAdmin' => $user->isAdmin(),
             ],
+            'redirect' => $this->generateUrl('problems_list')
         ]);
     }
 
     #[Route('/register', name: 'register', methods: ['POST'])]
     public function register(Request $request, EntityManagerInterface $entityManager, UserPasswordHasherInterface $passwordHasher): Response
     {
-        // Get registration data from request
         $username = $request->request->get('username');
         $password = $request->request->get('password');
         
@@ -73,7 +82,6 @@ class LoginController extends AbstractController
         $hashedPassword = $passwordHasher->hashPassword($user, $password);
         $user->setPassword($hashedPassword);
         
-
         $user->setIsAdmin(false);
         
         $entityManager->persist($user);
@@ -87,5 +95,13 @@ class LoginController extends AbstractController
                 'username' => $user->getUsername(),
             ],
         ]);
+    }
+    
+    #[Route('/logout', name: 'logout', methods: ['GET'])]
+    public function logout(Request $request): Response
+    {
+        $request->getSession()->clear();
+        
+        return $this->redirectToRoute('home');
     }
 }

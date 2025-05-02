@@ -17,9 +17,21 @@
                 </button>
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav ms-auto">
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ path('home') }}">Home</a>
-                        </li>
+                        {% if app.session.get('user_id') %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ path('problems_list') }}">Problems</a>
+                            </li>
+                            <li class="nav-item">
+                                <span class="nav-link text-light">Welcome, {{ app.session.get('username') }}</span>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-danger" href="{{ path('logout') }}">Logout</a>
+                            </li>
+                        {% else %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ path('home') }}">Home</a>
+                            </li>
+                        {% endif %}
                     </ul>
                 </div>
             </div>

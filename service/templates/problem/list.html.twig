@@ -1,0 +1,39 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Problems List{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Coding Problems</h1>
+        <a href="{{ path('logout') }}" class="btn btn-outline-danger">Logout</a>
+    </div>
+    
+    {% if problems|length > 0 %}
+        <div class="row">
+            {% for problem in problems %}
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">{{ problem.title }}</h5>
+                            <span class="badge {% if problem.difficulty == 'Easy' %}bg-success{% elseif problem.difficulty == 'Medium' %}bg-warning{% else %}bg-danger{% endif %}">
+                                {{ problem.difficulty }}
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">{{ problem.description|slice(0, 150) }}{% if problem.description|length > 150 %}...{% endif %}</p>
+                        </div>
+                        <div class="card-footer">
+                            <a href="#" class="btn btn-primary w-100">Solve Challenge</a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <p class="mb-0">No problems available yet. Please check back later!</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %} 
