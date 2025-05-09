@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Problem;
+use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -23,7 +24,7 @@ class ProblemController extends AbstractController
     }
     
     #[Route('/problems/create', name: 'problem_create', methods: ['GET'])]
-    public function createProblemForm(Request $request): Response
+    public function createProblemForm(Request $request, EntityManagerInterface $entityManager): Response
     {
         return $this->render('problem/create.html.twig');
     }
@@ -62,7 +63,13 @@ class ProblemController extends AbstractController
         $problem->setMaxRuntime($maxRuntime);
         $problem->setIsPublished($isPublished);
         
-        // Save to database
+        // Get the user from the session
+        $userId = $request->getSession()->get('user_id');
+        if ($userId) {
+            $user = $entityManager->getRepository(User::class)->find($userId);
+            $problem->setAuthor($user);
+        }
+ 
         $entityManager->persist($problem);
         $entityManager->flush();
         

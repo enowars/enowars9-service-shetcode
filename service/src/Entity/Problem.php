@@ -33,6 +33,10 @@ class Problem
 
     #[ORM\Column(type: 'float')]
     private float $maxRuntime = 1.0;
+    
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'author_id', referencedColumnName: 'id', nullable: true)]
+    private ?User $author = null;
 
     public function getId(): ?int
     {
@@ -119,6 +123,18 @@ class Problem
     public function setMaxRuntime(float $maxRuntime): self
     {
         $this->maxRuntime = min($maxRuntime, 1.0);
+        
+        return $this;
+    }
+    
+    public function getAuthor(): ?User
+    {
+        return $this->author;
+    }
+    
+    public function setAuthor(?User $author): self
+    {
+        $this->author = $author;
         
         return $this;
     }
