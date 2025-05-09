@@ -31,6 +31,9 @@ class Problem
     #[ORM\Column(type: 'boolean')]
     private bool $isPublished = false;
 
+    #[ORM\Column(type: 'float')]
+    private float $maxRuntime = 1.0;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -105,6 +108,18 @@ class Problem
     {
         $this->isPublished = $isPublished;
 
+        return $this;
+    }
+
+    public function getMaxRuntime(): float
+    {
+        return $this->maxRuntime;
+    }
+
+    public function setMaxRuntime(float $maxRuntime): self
+    {
+        $this->maxRuntime = min($maxRuntime, 1.0);
+        
         return $this;
     }
 } 

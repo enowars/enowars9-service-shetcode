@@ -1,0 +1,74 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Create New Problem{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Create New Problem</h1>
+        <div>
+            <a href="{{ path('problems_list') }}" class="btn btn-outline-secondary me-2">Back to Problems</a>
+            <a href="{{ path('logout') }}" class="btn btn-outline-danger">Logout</a>
+        </div>
+    </div>
+    
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="alert alert-{{ label == 'error' ? 'danger' : label }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endfor %}
+    
+    <div class="card">
+        <div class="card-body">
+            <form method="POST" action="{{ path('problem_create_post') }}">
+                <div class="mb-3">
+                    <label for="title" class="form-label">Title</label>
+                    <input type="text" class="form-control" id="title" name="title" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control" id="description" name="description" rows="5" required></textarea>
+                    <small class="text-muted">Describe the problem, including any constraints or requirements.</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="difficulty" class="form-label">Difficulty</label>
+                    <select class="form-select" id="difficulty" name="difficulty" required>
+                        <option value="Easy">Easy</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Hard">Hard</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="testCases" class="form-label">Test Cases (JSON format)</label>
+                    <textarea class="form-control" id="testCases" name="testCases" rows="3" required></textarea>
+                    <small class="text-muted">Enter test cases in JSON array format. Example: ["input1", "input2"]</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="expectedOutputs" class="form-label">Expected Outputs (JSON format)</label>
+                    <textarea class="form-control" id="expectedOutputs" name="expectedOutputs" rows="3" required></textarea>
+                    <small class="text-muted">Enter expected outputs in JSON array format. Example: ["output1", "output2"]</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="maxRuntime" class="form-label">Maximum Runtime (seconds)</label>
+                    <input type="number" class="form-control" id="maxRuntime" name="maxRuntime" step="0.1" min="0.1" max="1.0" value="1.0" required>
+                    <small class="text-muted">Maximum allowed runtime in seconds (max: 1.0)</small>
+                </div>
+                
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="isPublished" name="isPublished">
+                    <label class="form-check-label" for="isPublished">Publish immediately</label>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Create Problem</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

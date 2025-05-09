@@ -21,4 +21,52 @@ class ProblemController extends AbstractController
             'problems' => $problems,
         ]);
     }
+    
+    #[Route('/problems/create', name: 'problem_create', methods: ['GET'])]
+    public function createProblemForm(Request $request): Response
+    {
+        return $this->render('problem/create.html.twig');
+    }
+    
+    #[Route('/problems/create', name: 'problem_create_post', methods: ['POST'])]
+    public function createProblem(Request $request, EntityManagerInterface $entityManager): Response
+    {
+        $title = $request->request->get('title');
+        $description = $request->request->get('description');
+        $difficulty = $request->request->get('difficulty');
+        $testCases = $request->request->get('testCases');
+        $expectedOutputs = $request->request->get('expectedOutputs');
+        $maxRuntime = floatval($request->request->get('maxRuntime', 1.0));
+        $isPublished = $request->request->getBoolean('isPublished', false);
+        
+        if (empty($title) || empty($description) || empty($difficulty) || 
+            empty($testCases) || empty($expectedOutputs)) {
+            $this->addFlash('error', 'All fields are required');
+            return $this->redirectToRoute('problem_create');
+        }
+        
+        $testCasesArray = json_decode($testCases, true);
+        $expectedOutputsArray = json_decode($expectedOutputs, true);
+        
+        if (!$testCasesArray || !$expectedOutputsArray) {
+            $this->addFlash('error', 'Invalid format for test cases or expected outputs');
+            return $this->redirectToRoute('problem_create');
+        }
+        
+        $problem = new Problem();
+        $problem->setTitle($title);
+        $problem->setDescription($description);
+        $problem->setDifficulty($difficulty);
+        $problem->setTestCases($testCasesArray);
+        $problem->setExpectedOutputs($expectedOutputsArray);
+        $problem->setMaxRuntime($maxRuntime);
+        $problem->setIsPublished($isPublished);
+        
+        // Save to database
+        $entityManager->persist($problem);
+        $entityManager->flush();
+        
+        $this->addFlash('success', 'Problem created successfully');
+        return $this->redirectToRoute('problems_list');
+    }
 } 
