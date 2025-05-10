@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
@@ -16,11 +17,43 @@ class ProblemController extends AbstractController
     #[Route('/problems', name: 'problems_list', methods: ['GET'])]
     public function listProblems(Request $request, EntityManagerInterface $entityManager): Response
     {
-        $problems = $entityManager->getRepository(Problem::class)->findBy(['isPublished' => true]);
-        
+        $authorId = $request->query->get('author_id');
+        $users = $entityManager->getRepository(User::class)->findAll();
+            
         return $this->render('problem/list.html.twig', [
-            'problems' => $problems,
+            'users' => $users,
+            'selectedAuthor' => $authorId
         ]);
+    }
+    
+    #[Route('/api/problems', name: 'get_problems_data', methods: ['POST'])]
+    public function getProblemsData(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $sessionUserId = $request->getSession()->get('user_id');
+        
+        if (!$sessionUserId) {
+            return new JsonResponse(['error' => 'Unauthorized'], 401);
+        }
+        
+        $authorId = $request->request->get('author_id');
+        
+        if ($authorId) {
+            $connection = $entityManager->getConnection();
+            $sql = "SELECT p.* FROM problems p WHERE p.is_published = true AND p.author_id = " . $authorId;
+            
+            $stmt = $connection->prepare($sql);
+            $resultSet = $stmt->executeQuery();
+            $problems = $resultSet->fetchAllAssociative();
+        } else {
+            $connection = $entityManager->getConnection();
+            $sql = "SELECT p.* FROM problems p";
+            
+            $stmt = $connection->prepare($sql);
+            $resultSet = $stmt->executeQuery();
+            $problems = $resultSet->fetchAllAssociative();
+        }
+        
+        return new JsonResponse($problems);
     }
     
     #[Route('/problems/create', name: 'problem_create', methods: ['GET'])]
@@ -63,7 +96,6 @@ class ProblemController extends AbstractController
         $problem->setMaxRuntime($maxRuntime);
         $problem->setIsPublished($isPublished);
         
-        // Get the user from the session
         $userId = $request->getSession()->get('user_id');
         if ($userId) {
             $user = $entityManager->getRepository(User::class)->find($userId);

@@ -19,31 +19,127 @@
         {% endfor %}
     {% endfor %}
     
-    {% if problems|length > 0 %}
-        <div class="row">
-            {% for problem in problems %}
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">{{ problem.title }}</h5>
-                            <span class="badge {% if problem.difficulty == 'Easy' %}bg-success{% elseif problem.difficulty == 'Medium' %}bg-warning{% else %}bg-danger{% endif %}">
-                                {{ problem.difficulty }}
-                            </span>
-                        </div>
-                        <div class="card-body">
-                            <p class="card-text">{{ problem.description|slice(0, 150) }}{% if problem.description|length > 150 %}...{% endif %}</p>
-                        </div>
-                        <div class="card-footer">
-                            <a href="#" class="btn btn-primary w-100">Solve Challenge</a>
-                        </div>
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <div class="alert alert-info">
-            <p class="mb-0">No problems available yet. Please check back later!</p>
-        </div>
-    {% endif %}
+    <!-- Author Filter Form -->
+    <div class="mb-4">
+        <form id="authorFilterForm" class="row g-3">
+            <div class="col-md-4">
+                <select id="authorIdSelect" name="author_id" class="form-select">
+                    <option value="">All Authors</option>
+                    {% for user in users %}
+                        <option value="{{ user.id }}" {% if selectedAuthor == user.id %}selected{% endif %}>
+                            {{ user.username }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">Filter</button>
+            </div>
+        </form>
+    </div>
+    
+    <div id="problems-container" class="row">
+        <!-- Problems will be loaded here via AJAX -->
+    </div>
+    
+    <div id="no-problems" class="alert alert-info d-none">
+        <p class="mb-0">No problems available yet. Please check back later!</p>
+    </div>
 </div>
+
+{% block javascripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const problemsContainer = document.getElementById('problems-container');
+        const noProblemsMessage = document.getElementById('no-problems');
+        const authorFilterForm = document.getElementById('authorFilterForm');
+        
+        // Function to load problems via AJAX
+        function loadProblems(authorId = null) {
+            // Create form data for the POST request
+            const formData = new FormData();
+            if (authorId) {
+                formData.append('author_id', authorId);
+            }
+            
+            // Make POST request to the API endpoint
+            fetch('{{ path('get_problems_data') }}', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(problems => {
+                // Clear the container
+                problemsContainer.innerHTML = '';
+                
+                let visibleCount = 0;
+                
+                // Render each problem
+                problems.forEach(problem => {
+                    // Check if problem is published - this is the client-side filter
+                    const isPublished = problem.is_published == 1;
+                    
+                    // Create problem card element
+                    const problemCard = document.createElement('div');
+                    problemCard.className = 'col-md-4 mb-4 problem-card';
+                    
+                    // Only display published problems in the UI
+                    if (!isPublished) {
+                        problemCard.classList.add('d-none');
+                    } else {
+                        visibleCount++;
+                    }
+                    
+                    problemCard.innerHTML = `
+                        <div class="card h-100">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">${problem.title}</h5>
+                                <span class="badge ${problem.difficulty === 'Easy' ? 'bg-success' : problem.difficulty === 'Medium' ? 'bg-warning' : 'bg-danger'}">
+                                    ${problem.difficulty}
+                                </span>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text">${problem.description.length > 150 ? problem.description.substring(0, 150) + '...' : problem.description}</p>
+                            </div>
+                            <div class="card-footer">
+                                <a href="#" class="btn btn-primary w-100">Solve Challenge</a>
+                            </div>
+                        </div>
+                    `;
+                    
+                    problemsContainer.appendChild(problemCard);
+                });
+                
+                // Show or hide the "no problems" message
+                if (visibleCount === 0) {
+                    noProblemsMessage.classList.remove('d-none');
+                } else {
+                    noProblemsMessage.classList.add('d-none');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading problems:', error);
+            });
+        }
+        
+        // Load problems on page load
+        loadProblems();
+        
+        // Handle author filter form submission
+        authorFilterForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            const authorId = document.getElementById('authorIdSelect').value;
+            loadProblems(authorId);
+            
+            // Update URL with selected author (optional)
+            if (authorId) {
+                history.pushState(null, '', '{{ path('problems_list') }}?author_id=' + authorId);
+            } else {
+                history.pushState(null, '', '{{ path('problems_list') }}');
+            }
+        });
+    });
+</script>
+{% endblock %}
 {% endblock %} 
