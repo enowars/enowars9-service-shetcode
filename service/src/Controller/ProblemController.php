@@ -56,6 +56,33 @@ class ProblemController extends AbstractController
         return new JsonResponse($problems);
     }
     
+    #[Route('/problems/drafts', name: 'my_drafts', methods: ['GET'])]
+    public function myDrafts(Request $request, EntityManagerInterface $entityManager): Response
+    {
+        $userId = $request->getSession()->get('user_id');
+        
+        if (!$userId) {
+            $this->addFlash('error', 'You must be logged in to view your drafts');
+            return $this->redirectToRoute('login');
+        }
+        
+        $user = $entityManager->getRepository(User::class)->find($userId);
+        
+        if (!$user) {
+            $this->addFlash('error', 'User not found');
+            return $this->redirectToRoute('login');
+        }
+        
+        $drafts = $entityManager->getRepository(Problem::class)->findBy([
+            'author' => $user,
+            'isPublished' => false
+        ]);
+        
+        return $this->render('problem/drafts.html.twig', [
+            'drafts' => $drafts
+        ]);
+    }
+    
     #[Route('/problems/create', name: 'problem_create', methods: ['GET'])]
     public function createProblemForm(Request $request, EntityManagerInterface $entityManager): Response
     {
