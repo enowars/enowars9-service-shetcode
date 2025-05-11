@@ -39,8 +39,7 @@
                         </div>
                         <div class="card-footer d-flex justify-content-between">
                             <a href="{{ path('problem_edit', {'id': problem.id}) }}" class="btn btn-primary">Edit</a>
-                            <form method="POST" action="{{ path('problem_edit_post', {'id': problem.id}) }}" class="d-inline">
-                                <input type="hidden" name="isPublished" value="1">
+                            <form method="POST" action="{{ path('problem_publish', {'id': problem.id}) }}" class="d-inline">
                                 <button type="submit" class="btn btn-success">Publish</button>
                             </form>
                         </div>

@@ -213,4 +213,27 @@ class ProblemController extends AbstractController
         }
         return $this->redirectToRoute('problems_list');
     }
+    
+    #[Route('/problems/{id}/publish', name: 'problem_publish', methods: ['POST'])]
+    public function publishProblem(Request $request, EntityManagerInterface $entityManager, int $id): Response
+    {
+        $userId = $request->getSession()->get('user_id');
+        $problem = $entityManager->getRepository(Problem::class)->find($id);
+        
+        if (!$problem) {
+            $this->addFlash('error', 'Problem not found');
+            return $this->redirectToRoute('my_drafts');
+        }
+        
+        if ($problem->getAuthor()->getId() != $userId) {
+            $this->addFlash('error', 'You can only publish your own problems');
+            return $this->redirectToRoute('my_drafts');
+        }
+        
+        $problem->setIsPublished(true);
+        $entityManager->flush();
+        
+        $this->addFlash('success', 'Problem published successfully');
+        return $this->redirectToRoute('problems_list');
+    }
 } 
