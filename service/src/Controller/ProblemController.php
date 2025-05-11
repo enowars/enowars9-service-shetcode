@@ -61,11 +61,6 @@ class ProblemController extends AbstractController
     {
         $userId = $request->getSession()->get('user_id');
         
-        if (!$userId) {
-            $this->addFlash('error', 'You must be logged in to view your drafts');
-            return $this->redirectToRoute('login');
-        }
-        
         $user = $entityManager->getRepository(User::class)->find($userId);
         
         if (!$user) {
@@ -133,6 +128,89 @@ class ProblemController extends AbstractController
         $entityManager->flush();
         
         $this->addFlash('success', 'Problem created successfully');
+        return $this->redirectToRoute('problems_list');
+    }
+    
+    #[Route('/problems/{id}/edit', name: 'problem_edit', methods: ['GET'])]
+    public function editProblemForm(Request $request, EntityManagerInterface $entityManager, int $id): Response
+    {
+        $userId = $request->getSession()->get('user_id');
+        $problem = $entityManager->getRepository(Problem::class)->find($id);
+        
+        if (!$problem) {
+            $this->addFlash('error', 'Problem not found');
+            return $this->redirectToRoute('problems_list');
+        }
+        
+        if ($problem->getAuthor()->getId() != $userId) {
+            $this->addFlash('error', 'You can only edit your own problems');
+            return $this->redirectToRoute('problems_list');
+        }
+        
+        $testCasesJson = json_encode($problem->getTestCases());
+        $expectedOutputsJson = json_encode($problem->getExpectedOutputs());
+        
+        return $this->render('problem/edit.html.twig', [
+            'problem' => $problem,
+            'testCasesJson' => $testCasesJson,
+            'expectedOutputsJson' => $expectedOutputsJson
+        ]);
+    }
+    
+    #[Route('/problems/{id}/edit', name: 'problem_edit_post', methods: ['POST'])]
+    public function updateProblem(Request $request, EntityManagerInterface $entityManager, int $id): Response
+    {
+        $userId = $request->getSession()->get('user_id');
+        $problem = $entityManager->getRepository(Problem::class)->find($id);
+        
+        if (!$problem) {
+            $this->addFlash('error', 'Problem not found');
+            return $this->redirectToRoute('problems_list');
+        }
+        
+        if ($problem->getAuthor()->getId() != $userId) {
+            $this->addFlash('error', 'You can only edit your own problems');
+            return $this->redirectToRoute('problems_list');
+        }
+        
+        $title = $request->request->get('title');
+        $description = $request->request->get('description');
+        $difficulty = $request->request->get('difficulty');
+        $testCases = $request->request->get('testCases');
+        $expectedOutputs = $request->request->get('expectedOutputs');
+        $maxRuntime = floatval($request->request->get('maxRuntime', 1.0));
+        $isPublished = $request->request->getBoolean('isPublished', false);
+        
+        if (empty($title) || empty($description) || empty($difficulty) || 
+            empty($testCases) || empty($expectedOutputs)) {
+            $this->addFlash('error', 'All fields are required');
+            return $this->redirectToRoute('problem_edit', ['id' => $id]);
+        }
+        
+        $testCasesArray = json_decode($testCases, true);
+        $expectedOutputsArray = json_decode($expectedOutputs, true);
+        
+        if (!$testCasesArray || !$expectedOutputsArray) {
+            $this->addFlash('error', 'Invalid format for test cases or expected outputs');
+            return $this->redirectToRoute('problem_edit', ['id' => $id]);
+        }
+        
+
+        $problem->setTitle($title);
+        $problem->setDescription($description);
+        $problem->setDifficulty($difficulty);
+        $problem->setTestCases($testCasesArray);
+        $problem->setExpectedOutputs($expectedOutputsArray);
+        $problem->setMaxRuntime($maxRuntime);
+        $problem->setIsPublished($isPublished);
+        
+        $entityManager->flush();
+        
+        $this->addFlash('success', 'Problem updated successfully');
+        
+        if (!$isPublished) {
+            return $this->redirectToRoute('my_drafts');
+        }
         return $this->redirectToRoute('problems_list');
     }
 } 
