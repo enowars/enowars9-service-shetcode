@@ -1,7 +1,6 @@
-n0t3b00k example service
+Sheetcode
 ====================
-Example service to provide students a project strucutre. n0t3b00k is a simple service that allows users to register, login and save/retrieve notes. 
-
+Sheetcode is a service which allows users to create, edit and solve programming tasks and challange each other.
 -----------------------------------------------
 
 # Usage
@@ -15,12 +14,6 @@ Use this repository as the base structure for your service. Please keep the dire
 - `.env` files used by docker-compose to assign a unique project-name.
 - `docker-compose.yml` files to manage your service or checker containers
 - `Dockerfile` with commands to build your service
-
-# Required changes
-
-- You'll probably want to through all of these files and replace `n0t3b00k` with your service's name accordingly. 
-
-- Assign your service a unique port. (See `service/docker-compose.yml`, `service/Dockerfile`, `service/src/n0t3b00k.py` and `checker/checker.py`)
 
 # Checking your service
 
@@ -64,7 +57,3 @@ You will use CI/CD to continuously check the checker and service.
 ```
 ENOCHECKER_TEST_CHECKER_ADDRESS='localhost' ENOCHECKER_TEST_CHECKER_PORT='8000' ENOCHECKER_TEST_SERVICE_ADDRESS='192.168.2.112' enochecker_test
 ```
-
-# Questions?
-
-We understand that this can be a bit overwhelming at first, but you'll quickly get used to the workflow. Nonetheless, *please* reach out to us if you're having problems getting started or something is unclear.
