@@ -1,5 +1,9 @@
 #!/bin/bash
 
+if [ -S /var/run/docker.sock ]; then
+  chmod 666 /var/run/docker.sock
+fi
+
 # Wait for database to be ready
 echo "Waiting for database connection..."
 until php -r "try { new PDO('pgsql:host=database;dbname=${POSTGRES_DB:-app}', '${POSTGRES_USER:-app}', '${POSTGRES_PASSWORD:-app}'); echo 'Connected successfully'; } catch (PDOException \$e) { echo \$e->getMessage(); exit(1); }" > /dev/null 2>&1; do

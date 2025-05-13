@@ -1,0 +1,170 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ problem.title }}{% endblock %}
+
+{% block body %}
+<div class="container">
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="alert alert-{{ label == 'error' ? 'danger' : label }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endfor %}
+    
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1>{{ problem.title }}</h1>
+            <span class="badge {% if problem.difficulty == 'Easy' %}bg-success{% elseif problem.difficulty == 'Medium' %}bg-warning{% else %}bg-danger{% endif %} mb-3">
+                {{ problem.difficulty }}
+            </span>
+            <div class="mb-4">
+                <h5>Problem Description:</h5>
+                <div class="card p-3">
+                    {{ problem.description|nl2br }}
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <h5>Test Cases:</h5>
+                <div class="card p-3">
+                    <ul class="list-group list-group-flush">
+                        {% for test, output in test_examples %}
+                            <li class="list-group-item">
+                                <strong>Input:</strong> <code>{{ test }}</code><br>
+                                <strong>Expected Output:</strong> <code>{{ output }}</code>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <small class="text-muted">Note: These are sample test cases. Your solution will be tested against additional hidden test cases.</small>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">Author</h5>
+                </div>
+                <div class="card-body">
+                    <p>{{ problem.author ? problem.author.username : 'Unknown' }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Submit Your Solution</h4>
+                    <div>
+                        <select id="languageSelect" class="form-select">
+                            <option value="python" selected>Python</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form id="solutionForm">
+                        <div class="mb-3">
+                            <textarea id="codeEditor" class="form-control" rows="15" placeholder="# Write your code here"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Submit Solution</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="resultContainer" class="mt-4 d-none">
+        <div class="card">
+            <div class="card-header">
+                <h4>Results</h4>
+            </div>
+            <div class="card-body">
+                <div id="resultContent"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block javascripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const solutionForm = document.getElementById('solutionForm');
+        const codeEditor = document.getElementById('codeEditor');
+        const resultContainer = document.getElementById('resultContainer');
+        const resultContent = document.getElementById('resultContent');
+        
+        solutionForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            const code = codeEditor.value;
+            if (!code.trim()) {
+                alert('Please enter your solution code');
+                return;
+            }
+            
+            // Create form data for submission
+            const formData = new FormData();
+            formData.append('code', code);
+            
+            // Show loading state
+            resultContainer.classList.remove('d-none');
+            resultContent.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Testing your solution...</p></div>';
+            
+            // Submit the solution
+            fetch('{{ path("submit_solution", {"id": problem.id}) }}', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Display results
+                resultContainer.classList.remove('d-none');
+                
+                let resultHtml = '';
+                if (data.error) {
+                    resultHtml = `<div class="alert alert-danger">${data.error}</div>`;
+                } else {
+                    let allPassed = true;
+                    
+                    resultHtml = '<div class="test-results">';
+                    data.results.forEach((result, index) => {
+                        const passed = result.status === 'passed';
+                        allPassed = allPassed && passed;
+                        
+                        resultHtml += `
+                            <div class="card mb-3 border-${passed ? 'success' : 'danger'}">
+                                <div class="card-header bg-${passed ? 'success' : 'danger'} text-white">
+                                    Test Case ${index + 1}: ${passed ? 'Passed' : 'Failed'}
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>Input:</strong> <code>${result.input}</code></p>
+                                    <p><strong>Expected Output:</strong> <code>${result.expected}</code></p>
+                                    <p><strong>Your Output:</strong> <code>${result.output}</code></p>
+                                    ${result.message ? `<p><strong>Message:</strong> ${result.message}</p>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    if (allPassed) {
+                        resultHtml = `<div class="alert alert-success mb-4">All test cases passed! Great job!</div>` + resultHtml;
+                    }
+                    
+                    resultHtml += '</div>';
+                }
+                
+                resultContent.innerHTML = resultHtml;
+            })
+            .catch(error => {
+                resultContainer.classList.remove('d-none');
+                resultContent.innerHTML = `<div class="alert alert-danger">An error occurred while testing your solution: ${error.message}</div>`;
+            });
+        });
+    });
+</script>
+{% endblock %}
+{% endblock %} 

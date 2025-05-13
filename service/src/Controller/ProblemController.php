@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Command\CodeExecutor;
 use App\Entity\Problem;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
@@ -55,6 +56,73 @@ class ProblemController extends AbstractController
         
         return new JsonResponse($problems);
     }
+    
+    #[Route('/problems/details/{id}', name: 'problem_detail', methods: ['GET'])]
+    public function problemDetail(Request $request, EntityManagerInterface $entityManager, int $id): Response
+    {
+        $sessionUserId = $request->getSession()->get('user_id');
+        
+        if (!$sessionUserId) {
+            $this->addFlash('error', 'You must be logged in to view problems');
+            return $this->redirectToRoute('login');
+        }
+        
+        $problem = $entityManager->getRepository(Problem::class)->find($id);
+        
+        if (!$problem) {
+            $this->addFlash('error', 'Problem not found');
+            return $this->redirectToRoute('problems_list');
+        }
+        
+        if (!$problem->isPublished() && $problem->getAuthor()->getId() != $sessionUserId) {
+            $this->addFlash('error', 'You do not have permission to view this problem');
+            return $this->redirectToRoute('problems_list');
+        }
+        
+        // Get sample test cases for display (first 2 test cases)
+        $testCases = $problem->getTestCases();
+        $expectedOutputs = $problem->getExpectedOutputs();
+        
+        $test_examples = [];
+        $maxExamplesToShow = min(2, count($testCases));
+        
+        for ($i = 0; $i < $maxExamplesToShow; $i++) {
+            $test_examples[json_encode($testCases[$i])] = json_encode($expectedOutputs[$i]);
+        }
+        
+        return $this->render('problem/detail.html.twig', [
+            'problem' => $problem,
+            'test_examples' => $test_examples
+        ]);
+    }
+    
+    #[Route('/problems/details/{id}/submit', name: 'submit_solution', methods: ['POST'])]
+    public function submitSolution(Request $request, EntityManagerInterface $entityManager, CodeExecutor $codeExecutor, int $id): JsonResponse
+    {
+        $sessionUserId = $request->getSession()->get('user_id');
+        
+        if (!$sessionUserId) {
+            return new JsonResponse(['error' => 'You must be logged in to submit solutions'], 401);
+        }
+        
+        $problem = $entityManager->getRepository(Problem::class)->find($id);
+        
+        if (!$problem) {
+            return new JsonResponse(['error' => 'Problem not found'], 404);
+        }
+        
+        $code = $request->request->get('code');
+        
+        if (empty($code)) {
+            return new JsonResponse(['error' => 'Code cannot be empty'], 400);
+        }
+        
+        // Execute the user's code against the test cases
+        $results = $codeExecutor->executeUserCode($code, $problem->getTestCases(), $problem->getExpectedOutputs(), $sessionUserId, $problem->getId());
+        
+        return new JsonResponse(['results' => $results]);
+    }
+
     
     #[Route('/problems/drafts', name: 'my_drafts', methods: ['GET'])]
     public function myDrafts(Request $request, EntityManagerInterface $entityManager): Response
