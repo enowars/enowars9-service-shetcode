@@ -101,10 +101,6 @@ class ProblemController extends AbstractController
     {
         $sessionUserId = $request->getSession()->get('user_id');
         
-        if (!$sessionUserId) {
-            return new JsonResponse(['error' => 'You must be logged in to submit solutions'], 401);
-        }
-        
         $problem = $entityManager->getRepository(Problem::class)->find($id);
         
         if (!$problem) {
@@ -116,9 +112,8 @@ class ProblemController extends AbstractController
         if (empty($code)) {
             return new JsonResponse(['error' => 'Code cannot be empty'], 400);
         }
-        
-        // Execute the user's code against the test cases
-        $results = $codeExecutor->executeUserCode($code, $problem->getTestCases(), $problem->getExpectedOutputs(), $sessionUserId, $problem->getId());
+
+        $results = $codeExecutor->executeUserCode($code, $problem, $sessionUserId);
         
         return new JsonResponse(['results' => $results]);
     }
