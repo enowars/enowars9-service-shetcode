@@ -8,20 +8,24 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Doctrine\ORM\EntityManagerInterface;
+use App\Entity\User;
 
 class SessionTimeoutSubscriber implements EventSubscriberInterface
 {
     private RequestStack $requestStack;
     private UrlGeneratorInterface $urlGenerator;
+    private EntityManagerInterface $entityManager;
     
     private const PUBLIC_ROUTES = [
         'home', 'login', 'register', 'logout'
     ];
     
-    public function __construct(RequestStack $requestStack, UrlGeneratorInterface $urlGenerator)
+    public function __construct(RequestStack $requestStack, UrlGeneratorInterface $urlGenerator, EntityManagerInterface $entityManager)
     {
         $this->requestStack = $requestStack;
         $this->urlGenerator = $urlGenerator;
+        $this->entityManager = $entityManager;
     }
     
     public static function getSubscribedEvents(): array
@@ -47,7 +51,8 @@ class SessionTimeoutSubscriber implements EventSubscriberInterface
         $session = $this->requestStack->getSession();
         
         $userId = $session->get('user_id');
-        if (!$userId) {
+        $user = is_null($userId) ? null : $this->entityManager->getRepository(User::class)->find($userId);
+        if (!$userId || !$user) {
             $event->setResponse(new RedirectResponse($this->urlGenerator->generate('home')));
             return;
         }
