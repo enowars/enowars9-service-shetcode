@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Command\CodeExecutor;
+use App\DatabaseManager\FindProblemsByAuthorId;
 use App\Entity\Problem;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
@@ -11,7 +12,6 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 class ProblemController extends AbstractController
 {
@@ -28,45 +28,17 @@ class ProblemController extends AbstractController
     }
     
     #[Route('/api/problems', name: 'get_problems_data', methods: ['POST'])]
-    public function getProblemsData(Request $request, EntityManagerInterface $entityManager): JsonResponse
+    public function getProblemsData(Request $request, FindProblemsByAuthorId $findProblemsByAuthorId): JsonResponse
     {
-        $sessionUserId = $request->getSession()->get('user_id');
-        
-        if (!$sessionUserId) {
-            return new JsonResponse(['error' => 'Unauthorized'], 401);
-        }
-        
         $authorId = $request->request->get('author_id');
         
-        if ($authorId) {
-            $connection = $entityManager->getConnection();
-            $sql = "SELECT p.* FROM problems p WHERE p.is_published = true AND p.author_id = " . $authorId;
-            
-            $stmt = $connection->prepare($sql);
-            $resultSet = $stmt->executeQuery();
-            $problems = $resultSet->fetchAllAssociative();
-        } else {
-            $connection = $entityManager->getConnection();
-            $sql = "SELECT p.* FROM problems p";
-            
-            $stmt = $connection->prepare($sql);
-            $resultSet = $stmt->executeQuery();
-            $problems = $resultSet->fetchAllAssociative();
-        }
-        
-        return new JsonResponse($problems);
+        return new JsonResponse($findProblemsByAuthorId->execute($authorId));
     }
     
     #[Route('/problems/details/{id}', name: 'problem_detail', methods: ['GET'])]
     public function problemDetail(Request $request, EntityManagerInterface $entityManager, int $id): Response
     {
         $sessionUserId = $request->getSession()->get('user_id');
-        
-        if (!$sessionUserId) {
-            $this->addFlash('error', 'You must be logged in to view problems');
-            return $this->redirectToRoute('login');
-        }
-        
         $problem = $entityManager->getRepository(Problem::class)->find($id);
         
         if (!$problem) {
@@ -78,8 +50,7 @@ class ProblemController extends AbstractController
             $this->addFlash('error', 'You do not have permission to view this problem');
             return $this->redirectToRoute('problems_list');
         }
-        
-        // Get sample test cases for display (first 2 test cases)
+
         $testCases = $problem->getTestCases();
         $expectedOutputs = $problem->getExpectedOutputs();
         
@@ -124,25 +95,18 @@ class ProblemController extends AbstractController
     {
         $userId = $request->getSession()->get('user_id');
         
-        $user = $entityManager->getRepository(User::class)->find($userId);
-        
-        if (!$user) {
-            $this->addFlash('error', 'User not found');
-            return $this->redirectToRoute('login');
-        }
-        
         $drafts = $entityManager->getRepository(Problem::class)->findBy([
-            'author' => $user,
+            'author' => $userId,
             'isPublished' => false
         ]);
-        
+
         return $this->render('problem/drafts.html.twig', [
             'drafts' => $drafts
         ]);
     }
     
     #[Route('/problems/create', name: 'problem_create', methods: ['GET'])]
-    public function createProblemForm(Request $request, EntityManagerInterface $entityManager): Response
+    public function createProblemForm(): Response
     {
         return $this->render('problem/create.html.twig');
     }

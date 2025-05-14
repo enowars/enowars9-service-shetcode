@@ -48,8 +48,6 @@ class LoginController extends AbstractController
         
         $session = $request->getSession();
         $session->set('user_id', $user->getId());
-        $session->set('username', $user->getUsername());
-        $session->set('is_admin', $user->isAdmin());
         
         return $this->json([
             'success' => true,

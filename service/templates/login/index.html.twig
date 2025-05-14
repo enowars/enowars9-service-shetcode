@@ -60,13 +60,10 @@ document.addEventListener('DOMContentLoaded', function() {
             method: 'POST',
             body: new FormData(this),
         })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Server responded with status: ' + response.status);
-            }
-            return response.json();
-        })
-        .then(data => {
+        .then(response => response.json().then(data => {
+            return { response, data };
+        }))
+        .then(({ response, data }) => {
             document.getElementById('response-message').innerHTML = 
                 '<div class="alert alert-' + (data.success ? 'success' : 'danger') + '">' + 
                 data.message + '</div>';
@@ -89,13 +86,10 @@ document.addEventListener('DOMContentLoaded', function() {
             method: 'POST',
             body: new FormData(this),
         })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Server responded with status: ' + response.status);
-            }
-            return response.json();
-        })
-        .then(data => {
+        .then(response => response.json().then(data => {
+            return { response, data };
+        }))
+        .then(({ data }) => {
             document.getElementById('response-message').innerHTML = 
                 '<div class="alert alert-' + (data.success ? 'success' : 'danger') + '">' + 
                 data.message + '</div>';

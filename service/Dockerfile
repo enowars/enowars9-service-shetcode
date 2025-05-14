@@ -18,7 +18,7 @@ ENV DOCKER_HOST=unix:///var/run/docker.sock
 
 WORKDIR /var/www/html
 
-COPY . /var/www/html
+# COPY . /var/www/html
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

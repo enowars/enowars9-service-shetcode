@@ -5,6 +5,8 @@ services:
     build: .
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:rw
+      - ./:/var/www/html:rw
+      - ./var/log:/var/www/html/var/log:rw
     ports:
       - "8055:80"
     depends_on:
