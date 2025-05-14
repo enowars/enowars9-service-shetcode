@@ -10,6 +10,7 @@ class CodeExecutor
 {
     public function executeUserCode(string $code, Problem $problem, mixed $userId): array
     {
+        $maxRuntime = min($problem->getMaxRuntime(), 1);
         $results = [];
         $submissionsRoot = getcwd() . '/submissions';
         $userProblemDir = "$submissionsRoot/$userId/{$problem->getId()}";
@@ -18,7 +19,6 @@ class CodeExecutor
             mkdir($userProblemDir, 0777, true);
         }
 
-        // Сохраняем решение
         file_put_contents("$userProblemDir/solution.py", $code);
 
         foreach ($problem->getTestCases() as $i => $input) {
@@ -32,11 +32,11 @@ class CodeExecutor
                     'docker', 'create',
                     '--network', 'none',
                     '--cpus', '0.5',
-                    '--memory', '256m',
+                    '--memory', '64m',
                     '--name', $containerName,
                     'python:3.10-slim',
                     'bash', '-c',
-                    "timeout 2s python submissions/$userId/{$problem->getId()}/solution.py < submissions/$userId/{$problem->getId()}/input.txt"
+                    "timeout {$maxRuntime}s python submissions/$userId/{$problem->getId()}/solution.py < submissions/$userId/{$problem->getId()}/input.txt"
                 ]);
                 $create->mustRun();
 
@@ -50,7 +50,7 @@ class CodeExecutor
                 $start = new Process([
                     'docker', 'start', '-a', $containerName
                 ]);
-                $start->setTimeout(4);
+                $start->setTimeout($maxRuntime + 2);
                 $start->run();
 
                 $stdout = trim($start->getOutput());
@@ -85,7 +85,7 @@ class CodeExecutor
                 $results[] = [
                     'input'    => $input,
                     'expected' => $problem->getExpectedOutputs()[$i],
-                    'output'   => null,
+                    'output'   => "Time limit exceeded",
                     'passed'   => false,
                     'error'    => 'Time limit exceeded',
                 ];

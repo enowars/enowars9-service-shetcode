@@ -4,8 +4,6 @@ services:
   php:
     build: .
     volumes:
-      - ./:/var/www/html:rw
-      - ./var/log:/var/www/html/var/log:rw
       - /var/run/docker.sock:/var/run/docker.sock:rw
     ports:
       - "8055:80"
@@ -13,8 +11,7 @@ services:
       - database
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@database:5432/${POSTGRES_DB:-app}?serverVersion=${POSTGRES_VERSION:-16}"
-    group_add:
-      - 944
+    restart: unless-stopped
     mem_limit: 1g
     cpus: 1
 
