@@ -1,0 +1,74 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}User Feedback - Admin - Shetcode{% endblock %}
+
+{% block body %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-10 offset-md-1">
+            <div class="card">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h3>All User Feedback</h3>
+                    <a href="{{ path('admin_dashboard') }}" class="btn btn-light btn-sm">Back to Dashboard</a>
+                </div>
+                <div class="card-body">
+                    {% if feedback|length > 0 %}
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>User</th>
+                                        <th>Description</th>
+                                        <th>Date Submitted</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in feedback %}
+                                        <tr>
+                                            <td>{{ item.id }}</td>
+                                            <td>{{ item.username }}</td>
+                                            <td>{{ item.description|nl2br }}</td>
+                                            <td>{{ item.createdAt|date('Y-m-d H:i:s') }}</td>
+                                        </tr>
+                                        {% if item.image %}
+                                            <tr>
+                                                <td colspan="4" class="text-center">
+                                                    <div class="mb-2 mt-2">
+                                                        <h5>Uploaded Image:</h5>
+                                                        {# 
+                                                            SECURITY VULNERABILITY: 
+                                                            Raw SVG is displayed without sanitization, 
+                                                            allowing script execution - THIS IS INTENTIONAL FOR THE CTF CHALLENGE 
+                                                        #}
+                                                        <div class="svg-container">
+                                                            {{ item.image|raw }}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            No feedback entries found.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .svg-container {
+        max-width: 500px;
+        margin: 0 auto;
+        border: 1px solid #ddd;
+        padding: 10px;
+    }
+</style>
+{% endblock %} 
