@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Command\ImageHandler;
 use App\Entity\Feedback;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
@@ -25,8 +26,11 @@ class FeedbackController extends AbstractController
     }
 
     #[Route('/feedback/submit', name: 'feedback_submit', methods: ['POST'])]
-    public function submit(Request $request, EntityManagerInterface $entityManager): Response
-    {
+    public function submit(
+        Request $request,
+        EntityManagerInterface $entityManager,
+        ImageHandler $imageHandler
+    ): Response {
         $userId = $request->getSession()->get('user_id');
         $user = $entityManager->getRepository(User::class)->find($userId);
         $feedback = $entityManager->getRepository(Feedback::class)->findOneBy(['user' => $user]);
@@ -40,33 +44,15 @@ class FeedbackController extends AbstractController
 
         $image = $request->files->get('image');
         if ($image) {
-            if ($image->isValid()) {
-                if (!file_exists($image->getPathname())) {
-                    return $this->json([
-                        'success' => false,
-                        'message' => 'Image upload failed - file not found',
-                    ], 400);
-                }
-                
-                $imageContent = file_get_contents($image->getPathname());
-                
-                if ($imageContent === false) {
-                    return $this->json([
-                        'success' => false,
-                        'message' => 'Failed to read uploaded image data',
-                    ], 400);
-                }
-                $stream = fopen('php://memory', 'r+');
-                fwrite($stream, $imageContent);
-                rewind($stream);
-                
-                $feedback->setImage($stream);
-            } else {
+            $stream = $imageHandler->processUploadedImage($image);
+            if ($stream === false) {
                 return $this->json([
                     'success' => false,
-                    'message' => 'Invalid file upload: ' . $image->getErrorMessage(),
+                    'message' => 'Error processing image',
                 ], 400);
             }
+            
+            $feedback->setImage($stream);
         }
 
         $entityManager->persist($feedback);
@@ -80,26 +66,18 @@ class FeedbackController extends AbstractController
     }
 
     #[Route('/feedback/image/{id}', name: 'feedback_image', methods: ['GET'])]
-    public function getImage(int $id, EntityManagerInterface $entityManager): Response
+    public function getImage(int $id, EntityManagerInterface $entityManager, ImageHandler $imageHandler): Response
     {
         $feedback = $entityManager->getRepository(Feedback::class)->find($id);
         if (!$feedback || !$feedback->getImage()) {
             return new Response('Image not found', 404);
         }
-        $imageContent = stream_get_contents($feedback->getImage());
-        if ($imageContent === false) {
+
+        $response = $imageHandler->createImageResponse($feedback->getImage());
+        if ($response === null) {
             return new Response('Error reading image data', 500);
         }
-        $response = new Response($imageContent);
         
-        $contentType = 'image/svg+xml';
-        if (str_starts_with($imageContent, "\x89PNG")) {
-            $contentType = 'image/png';
-        } elseif (str_starts_with($imageContent, "\xff\xd8\xff")) {
-            $contentType = 'image/jpeg';
-        }
-        
-        $response->headers->set('Content-Type', $contentType);
         return $response;
     }
 } 
