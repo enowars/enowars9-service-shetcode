@@ -33,5 +33,18 @@ services:
     ports:
      - "5432:5432"
 
+  # It is only needed to immitate the behavior of admin during CTF
+  adminbot:
+    build:
+      context: .
+      dockerfile: docker/adminbot/Dockerfile
+    depends_on:
+      - php
+      - database
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@database:5432/${POSTGRES_DB:-app}"
+      APP_URL: "http://php:80"
+    restart: unless-stopped
+
 volumes:
   database_data:

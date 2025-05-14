@@ -11,7 +11,7 @@ readonly class FindProblemsByAuthorId
     ) {
     }
 
-    public function execute(?int $authorId): array
+    public function execute(?string $authorId): array
     {
         $sql = "SELECT p.* FROM problems p WHERE p.is_published = true";
         if ($authorId) {

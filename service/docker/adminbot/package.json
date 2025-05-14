@@ -1,0 +1,7 @@
+{
+  "name": "adminbot",
+  "version": "1.0.0",
+  "dependencies": {
+    "puppeteer": "^19.0.0"
+  }
+}
