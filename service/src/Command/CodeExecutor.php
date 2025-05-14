@@ -36,7 +36,7 @@ class CodeExecutor
                     '--name', $containerName,
                     'python:3.10-slim',
                     'bash', '-c',
-                    "timeout {$maxRuntime}s python submissions/$userId/{$problem->getId()}/solution.py < submissions/$userId/{$problem->getId()}/input.txt"
+                    "timeout {$maxRuntime}s python submissions/$userId/{$problem->getId()}/solution.py < submissions/$userId/{$problem->getId()}/input.txt 2>&1"
                 ]);
                 $create->mustRun();
 

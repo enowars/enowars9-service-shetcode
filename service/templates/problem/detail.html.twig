@@ -67,7 +67,7 @@
                 <div class="card-body">
                     <form id="solutionForm">
                         <div class="mb-3">
-                            <textarea id="codeEditor" class="form-control" rows="15" placeholder="# Write your code here"></textarea>
+                            <div id="codeEditor"></div>
                         </div>
                         <button type="submit" class="btn btn-primary">Submit Solution</button>
                     </form>
@@ -87,19 +87,52 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
 {% block javascripts %}
+<!-- Add CodeMirror CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
+
+<!-- Add CodeMirror JS and Python mode -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closebrackets.min.js"></script>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const solutionForm = document.getElementById('solutionForm');
-        const codeEditor = document.getElementById('codeEditor');
         const resultContainer = document.getElementById('resultContainer');
         const resultContent = document.getElementById('resultContent');
+        
+        // Initialize CodeMirror
+        const editor = CodeMirror(document.getElementById('codeEditor'), {
+            mode: 'python',
+            theme: 'monokai',
+            lineNumbers: true,
+            indentUnit: 4,
+            tabSize: 4,
+            indentWithTabs: false,
+            smartIndent: true,
+            lineWrapping: true,
+            matchBrackets: true,
+            autoCloseBrackets: true,
+            extraKeys: {"Tab": "indentMore", "Shift-Tab": "indentLess"},
+            placeholder: "# Write your Python code here"
+        });
+        
+        // Set default starting code
+        const startingCode = `## Implement your solution here \n## The input is provided through the input() function \n## The output should be printed to the console`;
+        editor.setValue(startingCode);
+        
+        // Set initial height
+        editor.setSize(null, 400);
         
         solutionForm.addEventListener('submit', function(event) {
             event.preventDefault();
             
-            const code = codeEditor.value;
+            const code = editor.getValue();
             if (!code.trim()) {
                 alert('Please enter your solution code');
                 return;
@@ -132,7 +165,7 @@
                     
                     resultHtml = '<div class="test-results">';
                     data.results.forEach((result, index) => {
-                        const passed = result.status === 'passed';
+                        const passed = result.passed === true;
                         allPassed = allPassed && passed;
                         
                         resultHtml += `
@@ -166,5 +199,4 @@
         });
     });
 </script>
-{% endblock %}
 {% endblock %} 

@@ -71,6 +71,9 @@ class ProblemController extends AbstractController
     public function submitSolution(Request $request, EntityManagerInterface $entityManager, CodeExecutor $codeExecutor, int $id): JsonResponse
     {
         $sessionUserId = $request->getSession()->get('user_id');
+        if (!$sessionUserId) {
+            $this->redirectToRoute('login');
+        }
         
         $problem = $entityManager->getRepository(Problem::class)->find($id);
         
