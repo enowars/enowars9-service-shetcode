@@ -6,6 +6,8 @@ use App\Command\CodeExecutor;
 use App\DatabaseManager\FindProblemsByAuthorId;
 use App\Entity\Problem;
 use App\Entity\User;
+use App\Entity\PrivateProblem;
+use App\Entity\PrivateAccess;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -118,12 +120,18 @@ class ProblemController extends AbstractController
     public function createProblem(Request $request, EntityManagerInterface $entityManager): Response
     {
         $title = $request->request->get('title');
+        $title = substr($title, 0, 50);
+
         $description = $request->request->get('description');
+        $description = substr($description, 0, 100);
+
         $difficulty = $request->request->get('difficulty');
         $testCases = $request->request->get('testCases');
         $expectedOutputs = $request->request->get('expectedOutputs');
         $maxRuntime = floatval($request->request->get('maxRuntime', 1.0));
         $isPublished = $request->request->getBoolean('isPublished', false);
+        $isPrivate = $request->request->getBoolean('isPrivate', false);
+        $accessUsers = $request->request->get('accessUsers');
         
         if (empty($title) || empty($description) || empty($difficulty) || 
             empty($testCases) || empty($expectedOutputs)) {
@@ -139,26 +147,56 @@ class ProblemController extends AbstractController
             return $this->redirectToRoute('problem_create');
         }
         
-        $problem = new Problem();
-        $problem->setTitle($title);
-        $problem->setDescription($description);
-        $problem->setDifficulty($difficulty);
-        $problem->setTestCases($testCasesArray);
-        $problem->setExpectedOutputs($expectedOutputsArray);
-        $problem->setMaxRuntime($maxRuntime);
-        $problem->setIsPublished($isPublished);
-        
         $userId = $request->getSession()->get('user_id');
-        if ($userId) {
-            $user = $entityManager->getRepository(User::class)->find($userId);
-            $problem->setAuthor($user);
-        }
- 
-        $entityManager->persist($problem);
-        $entityManager->flush();
+        $user = $entityManager->getRepository(User::class)->find($userId);
         
-        $this->addFlash('success', 'Problem created successfully');
-        return $this->redirectToRoute('problems_list');
+        if ($isPrivate) {
+            $problem = new PrivateProblem();
+            $problem->setTitle($title);
+            $problem->setDescription($description);
+            $problem->setDifficulty($difficulty);
+            $problem->setTestCases($testCasesArray);
+            $problem->setExpectedOutputs($expectedOutputsArray);
+            $problem->setMaxRuntime($maxRuntime);
+            $problem->setAuthor($user);
+            
+            $entityManager->persist($problem);
+            $entityManager->flush();
+            
+            // Process access users if provided
+            if (!empty($accessUsers)) {
+                $usernames = array_map('trim', explode(',', $accessUsers));
+                foreach ($usernames as $username) {
+                    $accessUser = $entityManager->getRepository(User::class)->findOneBy(['username' => $username]);
+                    if ($accessUser) {
+                        $access = new PrivateAccess();
+                        $access->setProblem($problem);
+                        $access->setUser($accessUser);
+                        $entityManager->persist($access);
+                    }
+                }
+                $entityManager->flush();
+            }
+            
+            $this->addFlash('success', 'Private problem created successfully');
+            return $this->redirectToRoute('private_problems_list');
+        } else {
+            $problem = new Problem();
+            $problem->setTitle($title);
+            $problem->setDescription($description);
+            $problem->setDifficulty($difficulty);
+            $problem->setTestCases($testCasesArray);
+            $problem->setExpectedOutputs($expectedOutputsArray);
+            $problem->setMaxRuntime($maxRuntime);
+            $problem->setIsPublished($isPublished);
+            $problem->setAuthor($user);
+            
+            $entityManager->persist($problem);
+            $entityManager->flush();
+            
+            $this->addFlash('success', 'Problem created successfully');
+            return $this->redirectToRoute('problems_list');
+        }
     }
     
     #[Route('/problems/{id}/edit', name: 'problem_edit', methods: ['GET'])]
@@ -265,5 +303,33 @@ class ProblemController extends AbstractController
         
         $this->addFlash('success', 'Problem published successfully');
         return $this->redirectToRoute('problems_list');
+    }
+    
+    #[Route('/private-problems', name: 'private_problems_list', methods: ['GET'])]
+    public function listPrivateProblems(Request $request, EntityManagerInterface $entityManager): Response
+    {
+        $userId = $request->getSession()->get('user_id');
+        if (!$userId) {
+            return $this->redirectToRoute('login');
+        }
+        
+        $ownProblems = $entityManager->getRepository(PrivateProblem::class)->findBy([
+            'author' => $userId
+        ]);
+
+        $query = $entityManager->createQueryBuilder()
+            ->select('p')
+            ->from(PrivateProblem::class, 'p')
+            ->join(PrivateAccess::class, 'pa', 'WITH', 'p.id = pa.problem')
+            ->where('pa.user = :userId')
+            ->setParameter('userId', $userId)
+            ->getQuery();
+        
+        $sharedProblems = $query->getResult();
+        
+        return $this->render('problem/private_list.html.twig', [
+            'ownProblems' => $ownProblems,
+            'sharedProblems' => $sharedProblems
+        ]);
     }
 } 

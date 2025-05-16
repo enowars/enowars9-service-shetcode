@@ -30,7 +30,7 @@
                 
                 <div class="mb-3">
                     <label for="description" class="form-label">Description</label>
-                    <textarea class="form-control" id="description" name="description" rows="5" required></textarea>
+                    <textarea class="form-control" id="description" name="description" rows="5" maxlength="100" required></textarea>
                     <small class="text-muted">Describe the problem, including any constraints or requirements.</small>
                 </div>
                 
@@ -62,6 +62,17 @@
                 </div>
                 
                 <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="isPrivate" name="isPrivate">
+                    <label class="form-check-label" for="isPrivate">Make this problem private</label>
+                </div>
+                
+                <div class="mb-3" id="accessUsersDiv" style="display: none;">
+                    <label for="accessUsers" class="form-label">Usernames with Access (comma-separated)</label>
+                    <textarea class="form-control" id="accessUsers" name="accessUsers" rows="2"></textarea>
+                    <small class="text-muted">Enter comma-separated usernames who should have access to this private problem.</small>
+                </div>
+                
+                <div class="mb-3 form-check">
                     <input type="checkbox" class="form-check-input" id="isPublished" name="isPublished">
                     <label class="form-check-label" for="isPublished">Publish immediately</label>
                 </div>
@@ -71,4 +82,14 @@
         </div>
     </div>
 </div>
+
+<script>
+    document.getElementById('isPrivate').addEventListener('change', function() {
+        if (this.checked) {
+            document.getElementById('accessUsersDiv').style.display = 'block';
+        } else {
+            document.getElementById('accessUsersDiv').style.display = 'none';
+        }
+    });
+</script>
 {% endblock %} 
