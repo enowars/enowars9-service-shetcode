@@ -80,6 +80,9 @@ class CodeExecutor
                         'passed'   => $passed,
                         'error'    => null,
                     ];
+                    if (!$passed) {
+                        return $results;
+                    }
                 }
             } catch (ProcessTimedOutException $e) {
                 $results[] = [
@@ -90,6 +93,7 @@ class CodeExecutor
                     'error'    => 'Time limit exceeded',
                 ];
                 (new Process(['docker', 'rm', '-f', $containerName]))->run();
+                return $results;
             }
         }
 
