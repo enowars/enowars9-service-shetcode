@@ -135,6 +135,14 @@ class ProblemController extends AbstractController
         
         if (empty($title) || empty($description) || empty($difficulty) || 
             empty($testCases) || empty($expectedOutputs)) {
+            
+            if ($request->headers->get('Accept') === 'application/json') {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'All fields are required'
+                ], 400);
+            }
+            
             $this->addFlash('error', 'All fields are required');
             return $this->redirectToRoute('problem_create');
         }
@@ -143,6 +151,13 @@ class ProblemController extends AbstractController
         $expectedOutputsArray = json_decode($expectedOutputs, true);
         
         if (!$testCasesArray || !$expectedOutputsArray) {
+            if ($request->headers->get('Accept') === 'application/json') {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Invalid format for test cases or expected outputs'
+                ], 400);
+            }
+            
             $this->addFlash('error', 'Invalid format for test cases or expected outputs');
             return $this->redirectToRoute('problem_create');
         }
@@ -178,6 +193,14 @@ class ProblemController extends AbstractController
                 $entityManager->flush();
             }
             
+            if ($request->headers->get('Accept') === 'application/json') {
+                return $this->json([
+                    'success' => true,
+                    'message' => 'Private problem created successfully',
+                    'problem_id' => $problem->getId()
+                ]);
+            }
+            
             $this->addFlash('success', 'Private problem created successfully');
             return $this->redirectToRoute('private_problems_list');
         } else {
@@ -193,6 +216,14 @@ class ProblemController extends AbstractController
             
             $entityManager->persist($problem);
             $entityManager->flush();
+            
+            if ($request->headers->get('Accept') === 'application/json') {
+                return $this->json([
+                    'success' => true,
+                    'message' => 'Problem created successfully',
+                    'problem_id' => $problem->getId()
+                ]);
+            }
             
             $this->addFlash('success', 'Problem created successfully');
             return $this->redirectToRoute('problems_list');

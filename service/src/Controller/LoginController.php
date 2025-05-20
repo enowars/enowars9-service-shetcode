@@ -12,7 +12,7 @@ use Symfony\Component\Routing\Annotation\Route;
 
 class LoginController extends AbstractController
 {
-    #[Route('/', name: 'home', methods: ['GET'])]
+    #[Route('/', name: 'home', methods: ['GET', 'POST'])]
     public function index(Request $request): Response
     {
         if ($request->getSession()->get('user_id')) {
