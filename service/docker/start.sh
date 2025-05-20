@@ -12,11 +12,15 @@ until php -r "try { new PDO('pgsql:host=database;dbname=${POSTGRES_DB:-app}', '$
 done
 echo ""
 
-# Run migrations
 echo "Running database migrations..."
 php bin/console doctrine:migrations:migrate --no-interaction || true
 
-# Start services
 echo "Starting services..."
 service nginx start
-php-fpm 
+php-fpm &
+
+while true; do
+  echo "Cleanup Database..."
+  php bin/console app:purge-old-data || echo "Purge error"
+  sleep 60
+done

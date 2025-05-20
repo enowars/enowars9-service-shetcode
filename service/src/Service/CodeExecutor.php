@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Command;
+namespace App\Service;
 
 use App\Entity\Problem;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;

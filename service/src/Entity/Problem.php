@@ -38,6 +38,14 @@ class Problem
     #[ORM\JoinColumn(name: 'author_id', referencedColumnName: 'id', nullable: true)]
     private ?User $author = null;
 
+    #[ORM\Column(type: 'datetime')]
+    private \DateTimeInterface $createdAt;
+
+    public function __construct()
+    {
+        $this->createdAt = new \DateTime();
+    }
+
     public function getId(): ?int
     {
         return $this->id;
@@ -136,6 +144,18 @@ class Problem
     {
         $this->author = $author;
         
+        return $this;
+    }
+
+    public function getCreatedAt(): \DateTimeInterface
+    {
+        return $this->createdAt;
+    }
+
+    public function setCreatedAt(\DateTimeInterface $createdAt): self
+    {
+        $this->createdAt = $createdAt;
+
         return $this;
     }
 } 

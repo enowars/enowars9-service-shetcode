@@ -2,9 +2,9 @@
 
 namespace App\Controller;
 
-use App\Command\ImageHandler;
 use App\Entity\Feedback;
 use App\Entity\User;
+use App\Service\ImageHandler;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;

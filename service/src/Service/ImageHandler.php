@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Command;
+namespace App\Service;
 
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
