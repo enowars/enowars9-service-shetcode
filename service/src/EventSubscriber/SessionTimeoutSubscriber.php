@@ -53,6 +53,7 @@ class SessionTimeoutSubscriber implements EventSubscriberInterface
         $userId = $session->get('user_id');
         $user = is_null($userId) ? null : $this->entityManager->getRepository(User::class)->find($userId);
         if (!$userId || !$user) {
+            $session->invalidate();
             $event->setResponse(new RedirectResponse($this->urlGenerator->generate('home')));
             return;
         }

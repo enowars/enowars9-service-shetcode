@@ -124,7 +124,11 @@
         
         // Set default starting code
         const startingCode = `## Implement your solution here \n## The input is provided through the input() function \n## The output should be printed to the console`;
+        {% if previous_solution %}
+        editor.setValue({{ previous_solution|json_encode|raw }});
+        {% else %}
         editor.setValue(startingCode);
+        {% endif %}
         
         // Set initial height
         editor.setSize(null, 400);

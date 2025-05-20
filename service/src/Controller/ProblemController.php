@@ -63,9 +63,18 @@ class ProblemController extends AbstractController
             $test_examples[json_encode($testCases[$i])] = json_encode($expectedOutputs[$i]);
         }
         
+        $previousSolution = null;
+        if ($sessionUserId) {
+            $solutionPath = sprintf('%s/submissions/%s/%d/solution.py', getcwd(), $sessionUserId, $id);
+            if (file_exists($solutionPath)) {
+                $previousSolution = file_get_contents($solutionPath);
+            }
+        }
+        
         return $this->render('problem/detail.html.twig', [
             'problem' => $problem,
-            'test_examples' => $test_examples
+            'test_examples' => $test_examples,
+            'previous_solution' => $previousSolution
         ]);
     }
     
