@@ -4,6 +4,7 @@ namespace App\Service;
 
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Response;
+use enshrined\svgSanitize\Sanitizer;
 
 class ImageHandler
 {
@@ -12,18 +13,21 @@ class ImageHandler
         if (!$file->isValid()) {
             return false;
         }
-        
-        if (!file_exists($file->getPathname())) {
-            return false;
-        }
-        
+
         $imageContent = file_get_contents($file->getPathname());
         if ($imageContent === false) {
             return false;
         }
         
+        $sanitizer = new Sanitizer();
+        $cleanSVG = $sanitizer->sanitize($imageContent);
+        
+        if ($cleanSVG === false) {
+            return false;
+        }
+        
         $stream = fopen('php://memory', 'r+');
-        fwrite($stream, $imageContent);
+        fwrite($stream, $cleanSVG);
         rewind($stream);
         
         return $stream;
