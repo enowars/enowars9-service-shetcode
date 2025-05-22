@@ -119,18 +119,12 @@ async def putflag_drafts(
         
         data = response.json()
         
-        if response.status_code != 200 or not data.get("success"):
-            error_msg = data.get("message", "Unknown error")
-            raise MumbleException(f"Failed to post flag: {error_msg}")
-        
         problem_id = data.get("problem_id")
-        if not problem_id:
-            raise MumbleException("No problem ID in response")
         
         await db.set("userdata", (username, password, problem_id))
         
     except Exception as ex:
-        raise MumbleException(f"Error posting flag: {ex}")
+        raise MumbleException(f"Error posting flag")
         
     return username
 
@@ -174,8 +168,6 @@ async def putflag_solutions(
 
     data = response.json()
     problem_id = data.get("problem_id")
-    if not problem_id:
-        raise MumbleException("No problem ID in response")
     
     response = await conn.client.post(
         f"/problems/details/{problem_id}/submit",
@@ -183,7 +175,7 @@ async def putflag_solutions(
     )
     
     if response.status_code != 200:
-        raise MumbleException(f"Failed to submit solution: {response.status_code}")
+        raise MumbleException(f"Error posting flag")
     
     await db.set("userdata", (username, password, problem_id))
 
@@ -214,7 +206,7 @@ async def putflag_feedback(
     )
 
     if response.status_code not in [200, 201, 302]:
-        raise MumbleException(f"Failed to submit feedback: {response.status_code}")
+        raise MumbleException(f"Failed posting flag")
     
     await db.set("userdata", (username, password))
 
@@ -223,7 +215,7 @@ async def getflag_drafts(
     task: GetflagCheckerTaskMessage, db: ChainDB, client: AsyncClient, logger: LoggerAdapter
 ) -> None:
     try:
-        username, password, problem_id = await db.get("userdata")
+        username, password = await db.get("userdata")
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
     
@@ -234,13 +226,13 @@ async def getflag_drafts(
     response = await conn.client.get(f"/problems/drafts")
     
     if response.status_code != 200:
-        raise MumbleException(f"Failed to retrieve problem. Status code: {response.status_code}")
+        raise MumbleException(f"Failed to retrieve flag.")
     
     content = response.text
     
     escaped_flag = task.flag.replace('/', r'\/')
     if task.flag not in content and escaped_flag not in content:
-        raise MumbleException("Flag was not found in the drafts content")
+        raise MumbleException("Flag was not found.")
     
 @checker.getflag(1)
 async def getflag_solutions(
@@ -258,13 +250,13 @@ async def getflag_solutions(
     response = await conn.client.get(f"/problems/details/{problem_id}")
 
     if response.status_code != 200:
-        raise MumbleException(f"Failed to retrieve problem. Status code: {response.status_code}")
+        raise MumbleException(f"Failed to retrieve flag.")
     
     content = response.text
 
     escaped_flag = task.flag.replace('/', r'\/')
     if task.flag not in content and escaped_flag not in content:
-        raise MumbleException(f"Flag was not found in the problem content: username: {username}, password: {password}, problem_id: {problem_id}, content: {content}, escaped_flag: {escaped_flag}")
+        raise MumbleException(f"Flag was not found.")
     
 @checker.getflag(2)
 async def getflag_feedback(
@@ -282,14 +274,14 @@ async def getflag_feedback(
     response = await conn.client.get("/feedback")
     
     if response.status_code not in [200, 201, 302]:
-        raise MumbleException(f"Failed to retrieve feedback: {response.status_code}")
+        raise MumbleException(f"Failed to retrieve flag.")
     
     content = response.text
 
 
     escaped_flag = task.flag.replace('/', r'\/')
     if task.flag not in content and escaped_flag not in content:
-        raise MumbleException("Flag was not found in the feedback content")
+        raise MumbleException("Flag was not found.")
     
 
 @checker.exploit(0)
