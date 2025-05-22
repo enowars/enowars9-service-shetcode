@@ -13,14 +13,19 @@ readonly class FindProblemsByAuthorId
 
     public function execute(?string $authorId): array
     {
-        $sql = "SELECT p.* FROM problems p WHERE p.is_published = true";
+        $queryBuilder = $this->entityManager->getConnection()->createQueryBuilder();
+        
+        $queryBuilder
+            ->select('p.*')
+            ->from('problems', 'p')
+            ->where('p.is_published = true');
+            
         if ($authorId) {
-            $sql .= " AND p.author_id = " . $authorId;
+            $queryBuilder->andWhere('p.author_id = :authorId')
+                ->setParameter('authorId', $authorId);
         }
 
-        return $this->entityManager
-            ->getConnection()
-            ->prepare($sql)
+        return $queryBuilder
             ->executeQuery()
             ->fetchAllAssociative();
     }
