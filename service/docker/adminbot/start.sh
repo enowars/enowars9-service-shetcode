@@ -1,15 +1,15 @@
 #!/bin/sh
 set -e
 
+ADMIN_USER="admin_$(openssl rand -hex 3)"
+ADMIN_PASS="$(openssl rand -base64 9)"
+
 cleanup() {
   echo "[adminbot] Removing admin user $ADMIN_USER..."
   psql "$DATABASE_URL" -c \
     "DELETE FROM users WHERE username='$ADMIN_USER';"
 }
 trap cleanup EXIT TERM INT
-
-ADMIN_USER="admin_$(openssl rand -hex 3)"
-ADMIN_PASS="$(openssl rand -base64 9)"
 
 echo "[adminbot] Creating admin $ADMIN_USER / $ADMIN_PASS"
 psql "$DATABASE_URL" -c \

