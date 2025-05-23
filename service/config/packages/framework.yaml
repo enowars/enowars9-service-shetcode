@@ -9,9 +9,6 @@ framework:
         cookie_secure: auto
         cookie_samesite: lax
         storage_factory_id: session.storage.factory.native
-        # Set session lifetime to 5 minutes (300 seconds)
-        cookie_lifetime: 300
-        gc_maxlifetime: 300
 
     #esi: true
     #fragments: true
@@ -24,6 +21,5 @@ when@test:
         session:
             handler_id: session.handler.native_file
             save_path: '%kernel.project_dir%/var/sessions/%kernel.environment%'
-            cookie_lifetime: 300
             cookie_secure: 'auto'
             cookie_samesite: 'lax'
