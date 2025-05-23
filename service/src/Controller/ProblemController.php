@@ -132,7 +132,7 @@ class ProblemController extends AbstractController
         $title = substr($title, 0, 255);
 
         $description = $request->request->get('description');
-        $description = substr($description, 0, 255);
+        $description = substr($description, 0, 1000);
 
         $difficulty = $request->request->get('difficulty');
         $testCases = $request->request->get('testCases');
@@ -282,7 +282,11 @@ class ProblemController extends AbstractController
         }
         
         $title = $request->request->get('title');
+        $title = substr($title, 0, 255);
+        
         $description = $request->request->get('description');
+        $description = substr($description, 0, 1000);
+        
         $difficulty = $request->request->get('difficulty');
         $testCases = $request->request->get('testCases');
         $expectedOutputs = $request->request->get('expectedOutputs');

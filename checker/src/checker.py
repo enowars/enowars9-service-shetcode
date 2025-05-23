@@ -6,7 +6,7 @@ import faker
 import json
 import re
 from httpx import AsyncClient
-from title_generator import generate_title
+from title_generator import generate_title, generate_problem_from_scenario, generate_funny_username
 from typing import Optional
 from logging import LoggerAdapter
 
@@ -85,9 +85,7 @@ async def putflag_drafts(
     logger: LoggerAdapter,    
 ) -> None:
     conn = Connection(logger, client)
-    username: str = "checker_" + "".join(
-        random.choices(string.ascii_uppercase + string.digits, k=12)
-    )
+    username: str = generate_funny_username()
     password: str = "checker_" + "".join(
         random.choices(string.ascii_uppercase + string.digits, k=12)
     )
@@ -108,7 +106,7 @@ async def putflag_drafts(
             data={
                 "title": problem_title,
                 "description": task.flag,
-                "difficulty": random.choice(["easy", "medium", "hard"]),
+                "difficulty": random.choice(["Easy", "Medium", "Hard"]),
                 "testCases": json.dumps(["sample input"]),
                 "expectedOutputs": json.dumps(["sample output"]),
                 "isPublished": "false",
@@ -136,9 +134,7 @@ async def putflag_solutions(
     logger: LoggerAdapter,    
 ) -> None:
     conn = Connection(logger, client)
-    username: str = "checker_" + "".join(
-        random.choices(string.ascii_uppercase + string.digits, k=12)
-    )
+    username: str = generate_funny_username()
     password: str = "checker_" + "".join(
         random.choices(string.ascii_uppercase + string.digits, k=12)
     )
@@ -148,7 +144,7 @@ async def putflag_solutions(
     await conn.login_user(username, password)
 
     problem_title = generate_title()
-    problem_description = generate_title()
+    problem_description, test_cases_json, expected_outputs_json = generate_problem_from_scenario()
 
     headers = {"Accept": "application/json"}
     response = await conn.client.post(
@@ -157,9 +153,9 @@ async def putflag_solutions(
             data={
                 "title": problem_title,
                 "description": problem_description,
-                "difficulty": random.choice(["easy", "medium", "hard"]),
-                "testCases": json.dumps(["sample input"]),
-                "expectedOutputs": json.dumps(["sample output"]),
+                "difficulty": random.choice(["Easy", "Medium", "Hard"]),
+                "testCases": test_cases_json,
+                "expectedOutputs": expected_outputs_json,
                 "isPublished": "true",
                 "isPrivate": "false",
                 "maxRuntime": "1.0"
@@ -187,9 +183,7 @@ async def putflag_feedback(
     logger: LoggerAdapter,    
 ) -> None:
     conn = Connection(logger, client)
-    username: str = "checker_" + "".join(
-        random.choices(string.ascii_uppercase + string.digits, k=12)
-    )
+    username: str = generate_funny_username()
     password: str = "checker_" + "".join(
         random.choices(string.ascii_uppercase + string.digits, k=12)
     )
@@ -286,9 +280,7 @@ async def getflag_feedback(
 
 @checker.exploit(0)
 async def exploit_drafts(task: ExploitCheckerTaskMessage, searcher: FlagSearcher, client: AsyncClient, logger: LoggerAdapter) -> Optional[str]:
-    username: str = "checker_" + "".join(
-        random.choices(string.ascii_uppercase + string.digits, k=12)
-    )
+    username: str = generate_funny_username()
     password: str = "checker_" + "".join(
         random.choices(string.ascii_uppercase + string.digits, k=12)
     )
@@ -324,9 +316,7 @@ async def exploit_solutions(task: ExploitCheckerTaskMessage,
                    client: AsyncClient, 
                    logger: LoggerAdapter
 ) -> Optional[str]:
-    username: str = "checker_" + "".join(
-        random.choices(string.ascii_uppercase + string.digits, k=12)
-    )
+    username: str = generate_funny_username()
     password: str = "checker_" + "".join(
         random.choices(string.ascii_uppercase + string.digits, k=12)
     )
@@ -363,9 +353,7 @@ async def exploit_feedback(task: ExploitCheckerTaskMessage,
                    client: AsyncClient, 
                    logger: LoggerAdapter
 ) -> Optional[str]:
-    username: str = "checker_" + "".join(
-        random.choices(string.ascii_uppercase + string.digits, k=12)
-    )
+    username: str = generate_funny_username()
     password: str = "checker_" + "".join(
         random.choices(string.ascii_uppercase + string.digits, k=12)
     )
@@ -466,9 +454,7 @@ async def exploit_feedback(task: ExploitCheckerTaskMessage,
 @checker.havoc(0)
 async def havoc_feedback_image(task: HavocCheckerTaskMessage, client: AsyncClient, logger: LoggerAdapter) -> None:
     conn = Connection(logger, client)
-    username: str = "checker_" + "".join(
-        random.choices(string.ascii_uppercase + string.digits, k=12)
-    )
+    username: str = generate_funny_username()
     password: str = "checker_" + "".join(
         random.choices(string.ascii_uppercase + string.digits, k=12)
     )
