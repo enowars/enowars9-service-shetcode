@@ -174,6 +174,11 @@ class ProblemController extends AbstractController
         $userId = $request->getSession()->get('user_id');
         $user = $entityManager->getRepository(User::class)->find($userId);
         
+        if ($user->isAdmin() && !$isPrivate) {
+            $this->addFlash('error', 'Admin users are not allowed to create public problems');
+            return $this->redirectToRoute('problem_create');
+        }
+        
         if ($isPrivate) {
             $problem = new PrivateProblem();
             $problem->setTitle($title);
@@ -187,7 +192,6 @@ class ProblemController extends AbstractController
             $entityManager->persist($problem);
             $entityManager->flush();
             
-            // Process access users if provided
             if (!empty($accessUsers)) {
                 $usernames = array_map('trim', explode(',', $accessUsers));
                 foreach ($usernames as $username) {
