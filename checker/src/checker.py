@@ -463,5 +463,65 @@ async def exploit_feedback(task: ExploitCheckerTaskMessage,
             
     return None
 
+@checker.havoc(0)
+async def havoc_feedback_image(task: HavocCheckerTaskMessage, client: AsyncClient, logger: LoggerAdapter) -> None:
+    conn = Connection(logger, client)
+    username: str = "checker_" + "".join(
+        random.choices(string.ascii_uppercase + string.digits, k=12)
+    )
+    password: str = "checker_" + "".join(
+        random.choices(string.ascii_uppercase + string.digits, k=12)
+    )
+
+    await conn.register_user(username, password)
+    await conn.login_user(username, password)
+
+    simple_svg = """<?xml version="1.0" encoding="UTF-8"?>
+<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="40" stroke="black" stroke-width="3" fill="red" />
+    <text x="50" y="55" text-anchor="middle" fill="white" font-family="Arial" font-size="12">Test</text>
+</svg>"""
+    
+    import tempfile
+    import os
+    
+    temp_dir = tempfile.mkdtemp()
+    svg_path = os.path.join(temp_dir, "simple_test.svg")
+    
+    with open(svg_path, "w") as f:
+        f.write(simple_svg)
+    
+    with open(svg_path, 'rb') as svg_file:
+        files = {'image': ('simple_test.svg', svg_file, 'image/svg+xml')}
+        data = {'description': 'Test feedback with simple SVG image'}
+        
+        response = await conn.client.post(
+            "/feedback/submit",
+            data=data,
+            files=files
+        )
+    
+    os.unlink(svg_path)
+    os.rmdir(temp_dir)
+
+    if response.status_code not in [200, 201, 302]:
+        raise MumbleException(f"Failed to submit feedback: {response.status_code}")
+    
+    await asyncio.sleep(2)
+    
+    response = await conn.client.get("/feedback")
+    
+    if response.status_code not in [200, 201, 302]:
+        raise MumbleException(f"Failed to retrieve feedback page: {response.status_code}")
+    
+    content = response.text
+    logger.debug(f"Feedback page content: {content}")
+    
+    if "Test feedback with simple SVG image" in content:
+        logger.info("Simple SVG feedback successfully appears on feedback page")
+    else:
+        logger.warning("Simple SVG feedback does not appear on feedback page")
+        raise MumbleException("Can't submit feedback with SVG image")
+
 if __name__ == "__main__":
     checker.run()
