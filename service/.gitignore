@@ -2,15 +2,6 @@
 .idea/
 node_modules/
 
-# Symfony env files
-/.env
-/.env.local
-/.env.dev
-/.env.*.local
-/.env.local.php
-/.env.*.local
-!/.env.example
-
 /config/secrets/prod/prod.decrypt.private.php
 /public/bundles/
 /public/submissions

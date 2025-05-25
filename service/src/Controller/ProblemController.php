@@ -132,7 +132,7 @@ class ProblemController extends AbstractController
         $title = substr($title, 0, 255);
 
         $description = $request->request->get('description');
-        $description = substr($description, 0, 255);
+        $description = substr($description, 0, 1000);
 
         $difficulty = $request->request->get('difficulty');
         $testCases = $request->request->get('testCases');
@@ -174,6 +174,11 @@ class ProblemController extends AbstractController
         $userId = $request->getSession()->get('user_id');
         $user = $entityManager->getRepository(User::class)->find($userId);
         
+        if ($user->isAdmin() && !$isPrivate) {
+            $this->addFlash('error', 'Admin users are not allowed to create public problems');
+            return $this->redirectToRoute('problem_create');
+        }
+        
         if ($isPrivate) {
             $problem = new PrivateProblem();
             $problem->setTitle($title);
@@ -187,7 +192,6 @@ class ProblemController extends AbstractController
             $entityManager->persist($problem);
             $entityManager->flush();
             
-            // Process access users if provided
             if (!empty($accessUsers)) {
                 $usernames = array_map('trim', explode(',', $accessUsers));
                 foreach ($usernames as $username) {
@@ -282,7 +286,11 @@ class ProblemController extends AbstractController
         }
         
         $title = $request->request->get('title');
+        $title = substr($title, 0, 255);
+        
         $description = $request->request->get('description');
+        $description = substr($description, 0, 1000);
+        
         $difficulty = $request->request->get('difficulty');
         $testCases = $request->request->get('testCases');
         $expectedOutputs = $request->request->get('expectedOutputs');
