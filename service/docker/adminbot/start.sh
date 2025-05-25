@@ -13,8 +13,8 @@ trap cleanup EXIT TERM INT
 
 echo "[adminbot] Creating admin $ADMIN_USER / $ADMIN_PASS"
 psql "$DATABASE_URL" -c \
-  "INSERT INTO users(username, password, is_admin) \
-   VALUES('$ADMIN_USER', crypt('$ADMIN_PASS', gen_salt('bf')), true);"
+  "INSERT INTO users(username, password, is_admin, created_at) \
+   VALUES('$ADMIN_USER', crypt('$ADMIN_PASS', gen_salt('bf')), true, NOW());"
 
 export ADMIN_USER ADMIN_PASS APP_URL
 
