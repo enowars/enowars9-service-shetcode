@@ -26,7 +26,10 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 
 COPY docker/nginx.conf /etc/nginx/sites-available/default
 
-RUN mkdir -p var/log var/cache public/submissions && chmod -R 777 var/log var/cache public/submissions
+RUN mkdir -p var/log var/cache public/submissions && \
+    chown -R www-data:www-data /var/www/html && \
+    chmod -R 755 /var/www/html && \
+    chmod -R 777 var/log var/cache public/submissions
 
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
