@@ -16,7 +16,7 @@ const puppeteer = require('puppeteer');
         console.log('Starting adminbot');
         const page = await browser.newPage();
 
-        await page.goto(`${process.env.APP_URL}/login`, {
+        await page.goto(`${process.env.APP_URL}`, {
             waitUntil: 'networkidle0'
         });
 

