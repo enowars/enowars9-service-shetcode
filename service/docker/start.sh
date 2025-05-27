@@ -1,29 +1,30 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -e
 
-if [ -S /var/run/docker.sock ]; then
-  chmod 666 /var/run/docker.sock
-fi
+# 1) Re-fix permissions on any runtime-generated dirs (in case Docker socket mount
+#    or other ops changed ownership):
+chown -R www-data:www-data var/log var/cache public/submissions
 
-# Wait for database to be ready
-echo "Waiting for database connection..."
-until php -r "try { new PDO('pgsql:host=database;dbname=${POSTGRES_DB:-app}', '${POSTGRES_USER:-app}', '${POSTGRES_PASSWORD:-app}'); echo 'Connected successfully'; } catch (PDOException \$e) { echo \$e->getMessage(); exit(1); }" > /dev/null 2>&1; do
-  echo -n "."
+# 2) Wait for Postgres
+echo "Waiting for database…"
+until php -r "new PDO('pgsql:host=database;dbname=${POSTGRES_DB:-app}', '${POSTGRES_USER:-app}', '${POSTGRES_PASSWORD:-app}');" \
+      > /dev/null 2>&1; do
   sleep 1
 done
-echo ""
+echo "Database ready."
 
-echo "Running database migrations..."
+# 3) Run migrations (ignore if none)
+echo "Running migrations…"
 php bin/console doctrine:migrations:migrate --no-interaction || true
 
-chown -R www-data:www-data /var/www/html/var/cache /var/www/html/var/log /var/www/html/public/submissions
-chmod -R 777 /var/www/html/var/cache /var/www/html/var/log /var/www/html/public/submissions
+# 4) Spawn cleanup loop in background
+(
+  while true; do
+    php bin/console app:purge-old-data || echo "[!] Purge error"
+    sleep 60
+  done
+) &
 
-echo "Starting services..."
-service nginx start
-php-fpm &
-
-while true; do
-  echo "Cleanup Database..."
-  php bin/console app:purge-old-data || echo "Purge error"
-  sleep 60
-done
+# 5) Launch nginx (foreground) and php-fpm (exec = PID 1)
+nginx -g 'daemon off;' &
+exec php-fpm
