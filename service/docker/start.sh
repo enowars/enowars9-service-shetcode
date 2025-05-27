@@ -15,6 +15,9 @@ echo ""
 echo "Running database migrations..."
 php bin/console doctrine:migrations:migrate --no-interaction || true
 
+chown -R www-data:www-data /var/www/html/var/cache /var/www/html/var/log /var/www/html/public/submissions
+chmod -R 777 /var/www/html/var/cache /var/www/html/var/log /var/www/html/public/submissions
+
 echo "Starting services..."
 service nginx start
 php-fpm &
