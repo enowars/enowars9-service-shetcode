@@ -1,26 +1,24 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -e
 
-if [ -S /var/run/docker.sock ]; then
-  chmod 666 /var/run/docker.sock
-fi
+chown -R www-data:www-data var/log var/cache public/submissions
 
-# Wait for database to be ready
-echo "Waiting for database connection..."
-until php -r "try { new PDO('pgsql:host=database;dbname=${POSTGRES_DB:-app}', '${POSTGRES_USER:-app}', '${POSTGRES_PASSWORD:-app}'); echo 'Connected successfully'; } catch (PDOException \$e) { echo \$e->getMessage(); exit(1); }" > /dev/null 2>&1; do
-  echo -n "."
+echo "Waiting for database…"
+until php -r "new PDO('pgsql:host=database;dbname=${POSTGRES_DB:-app}', '${POSTGRES_USER:-app}', '${POSTGRES_PASSWORD:-app}');" \
+      > /dev/null 2>&1; do
   sleep 1
 done
-echo ""
+echo "Database ready."
 
-echo "Running database migrations..."
+echo "Running migrations…"
 php bin/console doctrine:migrations:migrate --no-interaction || true
 
-echo "Starting services..."
-service nginx start
-php-fpm &
+(
+  while true; do
+    php bin/console app:purge-old-data || echo "[!] Purge error"
+    sleep 60
+  done
+) &
 
-while true; do
-  echo "Cleanup Database..."
-  php bin/console app:purge-old-data || echo "Purge error"
-  sleep 60
-done
+nginx -g 'daemon off;' &
+exec php-fpm
