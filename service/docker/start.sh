@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -e
 
+# Fix Docker socket permissions for www-data user
+if [ -S /var/run/docker.sock ]; then
+    chown root:docker /var/run/docker.sock
+    chmod 660 /var/run/docker.sock
+    # Ensure www-data is in docker group
+    usermod -aG docker www-data || true
+fi
+
 chown -R www-data:www-data var/log var/cache public/submissions
 
 echo "Waiting for database…"
