@@ -347,7 +347,7 @@ os.system('find submissions -type f -name "solution.py" | while read -r file; do
     if response.status_code != 200:
         raise MumbleException(f"Failed to submit exploit: {response.status_code}")
     
-    data = response.text.replace('\/', '/').replace('<', r'&lt;').replace('>', r'&gt;')
+    data = response.text.replace('\/', '/').replace('\\u003E', r'>').replace('\\u003C', r'<')
 
     if flag := searcher.search_flag(data):
         return flag
@@ -453,7 +453,9 @@ async def exploit_feedback(task: ExploitCheckerTaskMessage,
     if response.status_code != 200:
         raise MumbleException(f"Failed to get private problems: {response.status_code}")
     
-    if flag := searcher.search_flag(response.text):
+    data = response.text.replace('\/', '/').replace('&lt;', r'<').replace('&gt;', r'>')
+
+    if flag := searcher.search_flag(data) or searcher.search_flag(response.text):
         return flag
             
     raise MumbleException("No flag found exploit(2).")
