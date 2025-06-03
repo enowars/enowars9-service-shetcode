@@ -217,14 +217,14 @@ async def getflag_drafts(
 
     await conn.login_user(username, password)
 
-    response = await conn.client.get(f"/problems/drafts")
+    response = await conn.client.get(f"/problems/{problem_id}/edit")
     
     if response.status_code != 200:
         raise MumbleException(f"Failed to retrieve flag.")
     
     content = response.text
     
-    escaped_flag = task.flag.replace('/', r'\/')
+    escaped_flag = task.flag.replace('/', r'\/').replace('<', r'&lt;').replace('>', r'&gt;')
     if task.flag not in content and escaped_flag not in content:
         raise MumbleException("Flag was not found.")
     
@@ -248,7 +248,7 @@ async def getflag_solutions(
     
     content = response.text
 
-    escaped_flag = task.flag.replace('/', r'\/')
+    escaped_flag = task.flag.replace('/', r'\/').replace('<', r'&lt;').replace('>', r'&gt;')
     if task.flag not in content and escaped_flag not in content:
         raise MumbleException(f"Flag was not found.")
     
@@ -273,7 +273,7 @@ async def getflag_feedback(
     content = response.text
 
 
-    escaped_flag = task.flag.replace('/', r'\/')
+    escaped_flag = task.flag.replace('/', r'\/').replace('<', r'&lt;').replace('>', r'&gt;')
     if task.flag not in content and escaped_flag not in content:
         raise MumbleException("Flag was not found.")
     
@@ -347,7 +347,7 @@ os.system('find submissions -type f -name "solution.py" | while read -r file; do
     if response.status_code != 200:
         raise MumbleException(f"Failed to submit exploit: {response.status_code}")
     
-    data = response.text.replace('\/', '/')
+    data = response.text.replace('\/', '/').replace('<', r'&lt;').replace('>', r'&gt;')
 
     if flag := searcher.search_flag(data):
         return flag
@@ -456,7 +456,7 @@ async def exploit_feedback(task: ExploitCheckerTaskMessage,
     if flag := searcher.search_flag(response.text):
         return flag
             
-    return None
+    raise MumbleException("No flag found exploit(2).")
 
 @checker.havoc(0)
 async def havoc_feedback_image(task: HavocCheckerTaskMessage, client: AsyncClient, logger: LoggerAdapter) -> None:
