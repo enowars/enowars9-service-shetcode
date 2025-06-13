@@ -39,7 +39,6 @@
     </div>
     
     <div id="problems-container" class="row">
-        <!-- Problems will be loaded here via AJAX -->
     </div>
     
     <div id="no-problems" class="alert alert-info d-none">
@@ -54,15 +53,12 @@
         const noProblemsMessage = document.getElementById('no-problems');
         const authorFilterForm = document.getElementById('authorFilterForm');
         
-        // Function to load problems via AJAX
         function loadProblems(authorId = null) {
-            // Create form data for the POST request
             const formData = new FormData();
             if (authorId) {
                 formData.append('author_id', authorId);
             }
             
-            // Make POST request to the API endpoint
             fetch('{{ path('get_problems_data') }}', {
                 method: 'POST',
                 body: formData,
@@ -70,21 +66,16 @@
             })
             .then(response => response.json())
             .then(problems => {
-                // Clear the container
                 problemsContainer.innerHTML = '';
                 
                 let visibleCount = 0;
                 
-                // Render each problem
                 problems.forEach(problem => {
-                    // Check if problem is published - this is the client-side filter
                     const isPublished = problem.is_published == 1;
                     
-                    // Create problem card element
                     const problemCard = document.createElement('div');
                     problemCard.className = 'col-md-4 mb-4 problem-card';
                     
-                    // Only display published problems in the UI
                     if (!isPublished) {
                         problemCard.classList.add('d-none');
                     } else {
@@ -111,7 +102,6 @@
                     problemsContainer.appendChild(problemCard);
                 });
                 
-                // Show or hide the "no problems" message
                 if (visibleCount === 0) {
                     noProblemsMessage.classList.remove('d-none');
                 } else {
@@ -123,16 +113,13 @@
             });
         }
         
-        // Load problems on page load
         loadProblems();
         
-        // Handle author filter form submission
         authorFilterForm.addEventListener('submit', function(event) {
             event.preventDefault();
             const authorId = document.getElementById('authorIdSelect').value;
             loadProblems(authorId);
             
-            // Update URL with selected author (optional)
             if (authorId) {
                 history.pushState(null, '', '{{ path('problems_list') }}?author_id=' + authorId);
             } else {

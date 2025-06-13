@@ -1,4 +1,3 @@
-// server/adminbot.js
 const puppeteer = require('puppeteer');
 
 (async () => {
@@ -42,11 +41,9 @@ const puppeteer = require('puppeteer');
                 .forEach(old => {
                     const s = document.createElement('script');
                     if (old.src) {
-                        // external script
                         s.src = old.src;
                         s.async = false;
                     } else {
-                        // inline script
                         s.textContent = old.textContent;
                     }
                     document.head.appendChild(s);

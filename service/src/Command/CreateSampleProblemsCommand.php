@@ -107,7 +107,7 @@ class CreateSampleProblemsCommand extends Command
                     '1',
                     '3',
                 ],
-                'isPublished' => false, // Draft problem
+                'isPublished' => false,
             ],
         ];
 

@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Entity\Problem;
+use App\Entity\PrivateProblem;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
@@ -10,10 +11,22 @@ class CodeExecutor
 {
     public function executeUserCode(string $code, Problem $problem, mixed $userId): array
     {
+        return $this->executeCode($code, $problem, $userId, 'public');
+    }
+    
+    public function executeUserCodeForPrivateProblem(string $code, PrivateProblem $problem, mixed $userId): array
+    {
+        return $this->executeCode($code, $problem, $userId, 'private');
+    }
+    
+    private function executeCode(string $code, Problem|PrivateProblem $problem, mixed $userId, string $type): array
+    {
         $maxRuntime = min($problem->getMaxRuntime(), 1);
         $results = [];
         $submissionsRoot = getcwd() . '/submissions';
-        $userProblemDir = "$submissionsRoot/$userId/{$problem->getId()}";
+        
+        $problemIdentifier = $type === 'private' ? "private_{$problem->getId()}" : $problem->getId();
+        $userProblemDir = "$submissionsRoot/$userId/{$problemIdentifier}";
 
         if (!is_dir($userProblemDir)) {
             mkdir($userProblemDir, 0777, true);
@@ -36,7 +49,7 @@ class CodeExecutor
                     '--name', $containerName,
                     'python:3.10-slim',
                     'bash', '-c',
-                    "timeout {$maxRuntime}s python submissions/$userId/{$problem->getId()}/solution.py < submissions/$userId/{$problem->getId()}/input.txt 2>&1"
+                    "timeout {$maxRuntime}s python submissions/$userId/{$problemIdentifier}/solution.py < submissions/$userId/{$problemIdentifier}/input.txt 2>&1"
                 ]);
                 $create->mustRun();
 
