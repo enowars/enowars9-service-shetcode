@@ -11,7 +11,7 @@ services:
       code-executor:
         condition: service_started
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@database:5432/${POSTGRES_DB:-app}?serverVersion=${POSTGRES_VERSION:-16}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@database:5432/${POSTGRES_DB:-app}"
       CODE_EXECUTOR_HOST: "code-executor"
       CODE_EXECUTOR_PORT: "2376"
     restart: unless-stopped
@@ -31,6 +31,8 @@ services:
       start_period: 10s
     volumes:
       - database_data:/var/lib/postgresql/data:rw
+    ports:
+      - "5432:5432"
 
   code-executor:
     image: docker:24-dind
@@ -46,17 +48,7 @@ services:
     cpus: 2
     command: ["dockerd", "--host=tcp://0.0.0.0:2376", "--host=unix:///var/run/docker.sock", "--tls=false"]
 
-  adminbot:
-    build:
-      context: .
-      dockerfile: docker/adminbot/Dockerfile
-    depends_on:
-      - php
-      - database
-    environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@database:5432/${POSTGRES_DB:-app}"
-      APP_URL:         "http://php:80"
-    restart: unless-stopped
+
 
 volumes:
   database_data:
