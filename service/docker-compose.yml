@@ -31,8 +31,6 @@ services:
       start_period: 10s
     volumes:
       - database_data:/var/lib/postgresql/data:rw
-    ports:
-      - "5432:5432"
 
   code-executor:
     image: docker:24-dind
