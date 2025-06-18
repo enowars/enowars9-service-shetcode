@@ -1,14 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-# Fix Docker socket permissions for www-data user
-if [ -S /var/run/docker.sock ]; then
-    chown root:docker /var/run/docker.sock
-    chmod 660 /var/run/docker.sock
-    # Ensure www-data is in docker group
-    usermod -aG docker www-data || true
-fi
-
 chown -R www-data:www-data var/log var/cache public/submissions
 
 echo "Waiting for database…"
@@ -18,8 +10,22 @@ until php -r "new PDO('pgsql:host=database;dbname=${POSTGRES_DB:-app}', '${POSTG
 done
 echo "Database ready."
 
+echo "Waiting for code executor…"
+until timeout 5 bash -c "</dev/tcp/${CODE_EXECUTOR_HOST:-code-executor}/${CODE_EXECUTOR_PORT:-2376}" 2>/dev/null; do
+  echo "Waiting for code executor to be ready..."
+  sleep 2
+done
+echo "Code executor ready."
+
 echo "Running migrations…"
 php bin/console doctrine:migrations:migrate --no-interaction || true
+
+echo "Creating admin user if not exists…"
+psql "$DATABASE_URL" -c \
+  "INSERT INTO users(username, password, is_admin, created_at) \
+   VALUES('admin', '\$2y\$13\$4DB5zJhuuTRzOh7KHsv5GuVZjvHL0on32LbsCnon1luNdcML8YPyy', true, NOW()) \
+   ON CONFLICT (username) DO NOTHING;"
+echo "Admin user setup completed."
 
 (
   while true; do

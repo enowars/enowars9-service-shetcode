@@ -106,7 +106,6 @@
         const resultContainer = document.getElementById('resultContainer');
         const resultContent = document.getElementById('resultContent');
         
-        // Initialize CodeMirror
         const editor = CodeMirror(document.getElementById('codeEditor'), {
             mode: 'python',
             theme: 'monokai',
@@ -122,7 +121,6 @@
             placeholder: "# Write your Python code here"
         });
         
-        // Set default starting code
         const startingCode = `## Implement your solution here \n## The input is provided through the input() function \n## The output should be printed to the console`;
         {% if previous_solution %}
         editor.setValue({{ previous_solution|json_encode|raw }});
@@ -130,7 +128,6 @@
         editor.setValue(startingCode);
         {% endif %}
         
-        // Set initial height
         editor.setSize(null, 400);
         
         solutionForm.addEventListener('submit', function(event) {
@@ -142,23 +139,23 @@
                 return;
             }
             
-            // Create form data for submission
             const formData = new FormData();
             formData.append('code', code);
             
-            // Show loading state
             resultContainer.classList.remove('d-none');
             resultContent.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Testing your solution...</p></div>';
             
-            // Submit the solution
+            {% if is_private is defined and is_private %}
+            fetch('{{ path("submit_private_solution", {"id": problem.id}) }}', {
+            {% else %}
             fetch('{{ path("submit_solution", {"id": problem.id}) }}', {
+            {% endif %}
                 method: 'POST',
                 body: formData,
                 credentials: 'same-origin'
             })
             .then(response => response.json())
             .then(data => {
-                // Display results
                 resultContainer.classList.remove('d-none');
                 
                 let resultHtml = '';

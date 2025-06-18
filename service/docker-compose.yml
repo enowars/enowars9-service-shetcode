@@ -8,13 +8,15 @@ services:
     depends_on:
       database:
         condition: service_healthy
+      code-executor:
+        condition: service_started
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@database:5432/${POSTGRES_DB:-app}?serverVersion=${POSTGRES_VERSION:-16}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@database:5432/${POSTGRES_DB:-app}"
+      CODE_EXECUTOR_HOST: "code-executor"
+      CODE_EXECUTOR_PORT: "2376"
     restart: unless-stopped
     mem_limit: 1g
     cpus: 1
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:rw
 
   database:
     image: postgres:${POSTGRES_VERSION:-16}-alpine
@@ -30,17 +32,22 @@ services:
     volumes:
       - database_data:/var/lib/postgresql/data:rw
 
-  adminbot:
-    build:
-      context: .
-      dockerfile: docker/adminbot/Dockerfile
-    depends_on:
-      - php
-      - database
+  code-executor:
+    image: docker:24-dind
+    privileged: true
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@database:5432/${POSTGRES_DB:-app}"
-      APP_URL:         "http://php:80"
+      DOCKER_TLS_CERTDIR: ""
+    ports:
+      - "2376:2376"
+    volumes:
+      - code-executor-data:/var/lib/docker
     restart: unless-stopped
+    mem_limit: 2g
+    cpus: 2
+    command: ["dockerd", "--host=tcp://0.0.0.0:2376", "--host=unix:///var/run/docker.sock", "--tls=false"]
+
+
 
 volumes:
   database_data:
+  code-executor-data:

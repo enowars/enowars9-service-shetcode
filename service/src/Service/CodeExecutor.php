@@ -3,17 +3,39 @@
 namespace App\Service;
 
 use App\Entity\Problem;
+use App\Entity\PrivateProblem;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
 class CodeExecutor
 {
+    private string $dockerHost;
+    private string $dockerPort;
+
+    public function __construct()
+    {
+        $this->dockerHost = "code-executor";
+        $this->dockerPort = "2376";
+    }
+
     public function executeUserCode(string $code, Problem $problem, mixed $userId): array
+    {
+        return $this->executeCode($code, $problem, $userId, 'public');
+    }
+    
+    public function executeUserCodeForPrivateProblem(string $code, PrivateProblem $problem, mixed $userId): array
+    {
+        return $this->executeCode($code, $problem, $userId, 'private');
+    }
+    
+    private function executeCode(string $code, Problem|PrivateProblem $problem, mixed $userId, string $type): array
     {
         $maxRuntime = min($problem->getMaxRuntime(), 1);
         $results = [];
         $submissionsRoot = getcwd() . '/submissions';
-        $userProblemDir = "$submissionsRoot/$userId/{$problem->getId()}";
+        
+        $problemIdentifier = $type === 'private' ? "private_{$problem->getId()}" : $problem->getId();
+        $userProblemDir = "$submissionsRoot/$userId/{$problemIdentifier}";
 
         if (!is_dir($userProblemDir)) {
             mkdir($userProblemDir, 0777, true);
@@ -29,26 +51,30 @@ class CodeExecutor
 
             try {
                 $create = new Process([
-                    'docker', 'create',
+                    'docker', '-H', "tcp://{$this->dockerHost}:{$this->dockerPort}",
+                    'create',
                     '--network', 'none',
                     '--cpus', '0.5',
                     '--memory', '64m',
                     '--name', $containerName,
+                    '--user', '1000:1000',
                     'python:3.10-slim',
                     'bash', '-c',
-                    "timeout {$maxRuntime}s python submissions/$userId/{$problem->getId()}/solution.py < submissions/$userId/{$problem->getId()}/input.txt 2>&1"
+                    "timeout {$maxRuntime}s python submissions/$userId/{$problemIdentifier}/solution.py < submissions/$userId/{$problemIdentifier}/input.txt 2>&1"
                 ]);
+                $create->setTimeout(10);
                 $create->mustRun();
 
                 $cp = new Process([
-                    'docker', 'cp',
-                    $submissionsRoot,
-                    "{$containerName}:/submissions"
+                    'docker', '-H', "tcp://{$this->dockerHost}:{$this->dockerPort}",
+                    'cp', $submissionsRoot, "{$containerName}:/submissions"
                 ]);
+                $cp->setTimeout(10);
                 $cp->mustRun();
 
                 $start = new Process([
-                    'docker', 'start', '-a', $containerName
+                    'docker', '-H', "tcp://{$this->dockerHost}:{$this->dockerPort}",
+                    'start', '-a', $containerName
                 ]);
                 $start->setTimeout($maxRuntime + 2);
                 $start->run();
@@ -56,7 +82,11 @@ class CodeExecutor
                 $stdout = trim($start->getOutput());
                 $stderr = trim($start->getErrorOutput());
 
-                $rm = new Process(['docker', 'rm', $containerName]);
+                $rm = new Process([
+                    'docker', '-H', "tcp://{$this->dockerHost}:{$this->dockerPort}",
+                    'rm', $containerName
+                ]);
+                $rm->setTimeout(10);
                 $rm->run();
 
                 if ($start->getExitCode() === 124) {
@@ -92,7 +122,10 @@ class CodeExecutor
                     'passed'   => false,
                     'error'    => 'Time limit exceeded',
                 ];
-                (new Process(['docker', 'rm', '-f', $containerName]))->run();
+                (new Process([
+                    'docker', '-H', "tcp://{$this->dockerHost}:{$this->dockerPort}",
+                    'rm', '-f', $containerName
+                ]))->run();
                 return $results;
             }
         }

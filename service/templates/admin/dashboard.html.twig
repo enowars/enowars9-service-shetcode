@@ -16,7 +16,23 @@
                         <p>From here you can manage various aspects of the Shetcode platform.</p>
                     </div>
 
+                    {% if currentMessage %}
+                        <div class="alert alert-info mb-4">
+                            <h5>🕰️ Active Time Traveller Message</h5>
+                            <strong>From {{ currentMessage.year }}:</strong> {{ currentMessage.message }}
+                            <br><small class="text-muted">Broadcasting since {{ currentMessage.createdAt|date('Y-m-d H:i') }}</small>
+                        </div>
+                    {% endif %}
+
                     <div class="list-group mb-4">
+                        <a href="{{ path('admin_message_form') }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="mb-1">🕰️ Time Traveller Message</h5>
+                                <p class="mb-1">Send messages through time to all participants on the problems page</p>
+                            </div>
+                            <span class="badge bg-primary rounded-pill">→</span>
+                        </a>
+                        
                         <a href="{{ path('admin_feedback') }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                             <div>
                                 <h5 class="mb-1">View All User Feedback</h5>

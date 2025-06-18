@@ -1,0 +1,79 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Time Traveller Message - Admin{% endblock %}
+
+{% block body %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3>🕰️ Time Traveller Message</h3>
+                    <p class="mb-0">Send a message through time to all participants</p>
+                </div>
+                <div class="card-body">
+                    {% for label, messages in app.flashes %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ label == 'error' ? 'danger' : label }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endfor %}
+
+                    {% if currentMessage %}
+                        <div class="alert alert-info">
+                            <h5>📡 Current Message Broadcasting</h5>
+                            <strong>From {{ currentMessage.year }}:</strong> {{ currentMessage.message }}
+                            <br><small class="text-muted">Posted by {{ currentMessage.admin.username }} on {{ currentMessage.createdAt|date('Y-m-d H:i') }}</small>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <h5>📻 No Message Currently Broadcasting</h5>
+                            <p class="mb-0">No time traveller message is currently being shown to participants.</p>
+                        </div>
+                    {% endif %}
+
+                    <form action="{{ path('admin_message_post') }}" method="POST">
+                        <div class="mb-3">
+                            <label for="year" class="form-label">📅 Message Origin Year</label>
+                            <input type="number" class="form-control" id="year" name="year" 
+                                   value="{{ currentMessage ? currentMessage.year : '2024' }}" 
+                                   min="1800" max="2200" required>
+                            <div class="form-text">Enter the year this message is supposedly from (1800-2200)</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="message" class="form-label">✉️ Time Traveller Message</label>
+                            <textarea class="form-control" id="message" name="message" rows="5" 
+                                      placeholder="Enter your message from the past or future..." required>{{ currentMessage ? currentMessage.message : '' }}</textarea>
+                            <div class="form-text">This message will replace any existing message and be shown to all users on the problems page.</div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ path('admin_dashboard') }}" class="btn btn-secondary me-md-2">🔙 Back to Dashboard</a>
+                            <button type="submit" class="btn btn-primary">🚀 Send Through Time</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <div class="card border-info">
+                    <div class="card-header bg-info text-white">
+                        <h5>ℹ️ How Time Traveller Messages Work</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="mb-0">
+                            <li>Only one message can be active at a time</li>
+                            <li>New messages replace the previous one</li>
+                            <li>Messages appear at the top of the problems page for all users</li>
+                            <li>Choose a year that fits the time-travelling theme</li>
+                            <li>Keep messages engaging and relevant to the coding challenges</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

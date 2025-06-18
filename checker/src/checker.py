@@ -28,6 +28,7 @@ from enochecker3 import (
     AsyncSocket,
 )
 from enochecker3.utils import assert_equals, assert_in
+import admin_simulator
 
 """
 Checker config
@@ -517,6 +518,20 @@ async def havoc_feedback_image(task: HavocCheckerTaskMessage, client: AsyncClien
     else:
         logger.warning("Simple SVG feedback does not appear on feedback page")
         raise MumbleException("Can't submit feedback with SVG image")
+
+@checker.havoc(1)
+async def havoc_admin_simulation(task: HavocCheckerTaskMessage, client: AsyncClient, logger: LoggerAdapter) -> None:
+    logger.info("Starting admin simulation havoc test...")
+
+    simulator = admin_simulator.AdminSimulator(client, logger)
+    
+    try:
+        await simulator.load_feedback_page()
+        await simulator.post_new_message()
+        logger.info("Admin simulation completed successfully")
+        
+    except Exception as e:
+        raise MumbleException(f"Admin could not post message or visit feedback page.")
 
 if __name__ == "__main__":
     checker.run()

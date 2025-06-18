@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\DatabaseManager\FindProblemsByAuthorId;
+use App\Entity\AdminMessage;
 use App\Entity\PrivateAccess;
 use App\Entity\PrivateProblem;
 use App\Entity\Problem;
@@ -22,10 +23,14 @@ class ProblemController extends AbstractController
     {
         $authorId = $request->query->get('author_id');
         $users = $entityManager->getRepository(User::class)->findAll();
+        
+        $adminMessage = $entityManager->getRepository(AdminMessage::class)
+            ->findOneBy([], ['createdAt' => 'DESC']);
             
         return $this->render('problem/list.html.twig', [
             'users' => $users,
-            'selectedAuthor' => $authorId
+            'selectedAuthor' => $authorId,
+            'adminMessage' => $adminMessage
         ]);
     }
     
@@ -379,5 +384,118 @@ class ProblemController extends AbstractController
             'ownProblems' => $ownProblems,
             'sharedProblems' => $sharedProblems
         ]);
+    }
+    
+    #[Route('/private-problems/details/{id}', name: 'private_problem_detail', methods: ['GET'])]
+    public function privateProblemDetail(Request $request, EntityManagerInterface $entityManager, int $id): Response
+    {
+        $sessionUserId = $request->getSession()->get('user_id');
+        if (!$sessionUserId) {
+            return $this->redirectToRoute('login');
+        }
+        
+        $problem = $entityManager->getRepository(PrivateProblem::class)->find($id);
+        
+        if (!$problem) {
+            $this->addFlash('error', 'Private problem not found');
+            return $this->redirectToRoute('private_problems_list');
+        }
+        
+        $hasAccess = false;
+        
+        if ($problem->getAuthor()->getId() == $sessionUserId) {
+            $hasAccess = true;
+        } else {
+            $accessQuery = $entityManager->createQueryBuilder()
+                ->select('pa')
+                ->from(PrivateAccess::class, 'pa')
+                ->where('pa.problem = :problemId AND pa.user = :userId')
+                ->setParameter('problemId', $id)
+                ->setParameter('userId', $sessionUserId)
+                ->getQuery();
+            
+            $access = $accessQuery->getOneOrNullResult();
+            if ($access) {
+                $hasAccess = true;
+            }
+        }
+        
+        if (!$hasAccess) {
+            $this->addFlash('error', 'You do not have permission to view this private problem');
+            return $this->redirectToRoute('private_problems_list');
+        }
+
+        $testCases = $problem->getTestCases();
+        $expectedOutputs = $problem->getExpectedOutputs();
+        
+        $test_examples = [];
+        $maxExamplesToShow = min(2, count($testCases));
+        
+        for ($i = 0; $i < $maxExamplesToShow; $i++) {
+            $test_examples[json_encode($testCases[$i])] = json_encode($expectedOutputs[$i]);
+        }
+        
+        $previousSolution = null;
+        if ($sessionUserId) {
+            $solutionPath = sprintf('%s/submissions/%s/private_%d/solution.py', getcwd(), $sessionUserId, $id);
+            if (file_exists($solutionPath)) {
+                $previousSolution = file_get_contents($solutionPath);
+            }
+        }
+        
+        return $this->render('problem/detail.html.twig', [
+            'problem' => $problem,
+            'test_examples' => $test_examples,
+            'previous_solution' => $previousSolution,
+            'is_private' => true
+        ]);
+    }
+    
+    #[Route('/private-problems/details/{id}/submit', name: 'submit_private_solution', methods: ['POST'])]
+    public function submitPrivateSolution(Request $request, EntityManagerInterface $entityManager, CodeExecutor $codeExecutor, int $id): JsonResponse
+    {
+        $sessionUserId = $request->getSession()->get('user_id');
+        if (!$sessionUserId) {
+            return new JsonResponse(['error' => 'User not logged in'], 401);
+        }
+        
+        $problem = $entityManager->getRepository(PrivateProblem::class)->find($id);
+        
+        if (!$problem) {
+            return new JsonResponse(['error' => 'Private problem not found'], 404);
+        }
+        
+        $hasAccess = false;
+        
+        if ($problem->getAuthor()->getId() == $sessionUserId) {
+            $hasAccess = true;
+        } else {
+            $accessQuery = $entityManager->createQueryBuilder()
+                ->select('pa')
+                ->from(PrivateAccess::class, 'pa')
+                ->where('pa.problem = :problemId AND pa.user = :userId')
+                ->setParameter('problemId', $id)
+                ->setParameter('userId', $sessionUserId)
+                ->getQuery();
+            
+            $access = $accessQuery->getOneOrNullResult();
+            if ($access) {
+                $hasAccess = true;
+            }
+        }
+        
+        if (!$hasAccess) {
+            return new JsonResponse(['error' => 'You do not have permission to submit to this private problem'], 403);
+        }
+        
+        $code = $request->request->get('code');
+        
+        if (empty($code)) {
+            return new JsonResponse(['error' => 'Code cannot be empty'], 400);
+        }
+
+        $results = $codeExecutor->executeUserCodeForPrivateProblem($code, $problem, $sessionUserId);
+        
+        return new JsonResponse(['results' => $results]);
     }
 } 
