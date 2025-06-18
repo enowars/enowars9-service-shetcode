@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\DatabaseManager\FindProblemsByAuthorId;
+use App\Entity\AdminMessage;
 use App\Entity\PrivateAccess;
 use App\Entity\PrivateProblem;
 use App\Entity\Problem;
@@ -22,10 +23,14 @@ class ProblemController extends AbstractController
     {
         $authorId = $request->query->get('author_id');
         $users = $entityManager->getRepository(User::class)->findAll();
+        
+        $adminMessage = $entityManager->getRepository(AdminMessage::class)
+            ->findOneBy([], ['createdAt' => 'DESC']);
             
         return $this->render('problem/list.html.twig', [
             'users' => $users,
-            'selectedAuthor' => $authorId
+            'selectedAuthor' => $authorId,
+            'adminMessage' => $adminMessage
         ]);
     }
     
