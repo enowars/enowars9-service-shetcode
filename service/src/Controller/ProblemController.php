@@ -22,16 +22,17 @@ class ProblemController extends AbstractController
     public function listProblems(Request $request, EntityManagerInterface $entityManager): Response
     {
         $authorId = $request->query->get('author_id');
-        $users = $entityManager->getRepository(User::class)->findAll();
         
         $adminMessage = $entityManager->getRepository(AdminMessage::class)
             ->findOneBy([], ['createdAt' => 'DESC']);
             
-        return $this->render('problem/list.html.twig', [
-            'users' => $users,
+        $response = $this->render('problem/list.html.twig', [
             'selectedAuthor' => $authorId,
             'adminMessage' => $adminMessage
         ]);
+        $response->setSharedMaxAge(30);
+
+        return $response;
     }
     
     #[Route('/api/problems', name: 'get_problems_data', methods: ['POST'])]

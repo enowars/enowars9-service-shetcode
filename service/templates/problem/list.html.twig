@@ -36,14 +36,7 @@
     <div class="mb-4">
         <form id="authorFilterForm" class="row g-3">
             <div class="col-md-4">
-                <select id="authorIdSelect" name="author_id" class="form-select">
-                    <option value="">All Authors</option>
-                    {% for user in users %}
-                        <option value="{{ user.id }}" {% if selectedAuthor == user.id %}selected{% endif %}>
-                            {{ user.username }}
-                        </option>
-                    {% endfor %}
-                </select>
+                <input type="text" id="authorIdSelect" name="author_id" class="form-control">
             </div>
             <div class="col-auto">
                 <button type="submit" class="btn btn-primary">Filter</button>
