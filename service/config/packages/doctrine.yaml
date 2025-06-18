@@ -1,6 +1,9 @@
 doctrine:
     dbal:
         url: '%env(resolve:DATABASE_URL)%'
+        # Performance optimizations
+        options:
+            1000: true  # PDO::ATTR_PERSISTENT
 
         # IMPORTANT: You MUST configure your server version,
         # either here or in the DATABASE_URL env var (see .env file)
@@ -26,6 +29,16 @@ doctrine:
                 alias: App
         controller_resolver:
             auto_mapping: false
+        # Enable query result caching in all environments
+        query_cache_driver:
+            type: pool
+            pool: doctrine.system_cache_pool
+        result_cache_driver:
+            type: pool
+            pool: doctrine.result_cache_pool
+        metadata_cache_driver:
+            type: pool
+            pool: doctrine.system_cache_pool
 
 when@test:
     doctrine:
@@ -50,5 +63,7 @@ when@prod:
             pools:
                 doctrine.result_cache_pool:
                     adapter: cache.app
+                    default_lifetime: 3600
                 doctrine.system_cache_pool:
                     adapter: cache.system
+                    default_lifetime: 3600

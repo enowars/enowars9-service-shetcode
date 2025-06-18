@@ -26,7 +26,7 @@ WORKDIR /var/www/html
 COPY . .
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+RUN composer update --no-dev --optimize-autoloader --no-interaction
 
 RUN mkdir -p var/log var/cache public/submissions \
  && chown -R www-data:www-data var \
@@ -36,6 +36,7 @@ RUN php bin/console cache:warmup --env=prod \
  && chown -R www-data:www-data var/cache
 
 COPY docker/nginx.conf /etc/nginx/sites-available/default
+COPY docker/php-fpm.conf /usr/local/etc/php-fpm.d/www.conf
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 COPY docker/start.sh /usr/local/bin/start.sh
