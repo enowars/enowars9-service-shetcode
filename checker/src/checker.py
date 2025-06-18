@@ -28,7 +28,7 @@ from enochecker3 import (
     AsyncSocket,
 )
 from enochecker3.utils import assert_equals, assert_in
-from admin_simulator import simulate_admin_visit
+import admin_simulator
 
 """
 Checker config
@@ -521,16 +521,17 @@ async def havoc_feedback_image(task: HavocCheckerTaskMessage, client: AsyncClien
 
 @checker.havoc(1)
 async def havoc_admin_simulation(task: HavocCheckerTaskMessage, client: AsyncClient, logger: LoggerAdapter) -> None:
-    """Simulate admin visiting feedback page to trigger any XSS payloads"""
     logger.info("Starting admin simulation havoc test...")
+
+    simulator = admin_simulator.AdminSimulator(client, logger)
     
     try:
-        # Run the admin simulation - this replaces the old adminbot functionality
-        await simulate_admin_visit(client, logger)
+        await simulator.load_feedback_page()
+        await simulator.post_new_message()
         logger.info("Admin simulation completed successfully")
         
     except Exception as e:
-        raise MumbleException(f"Admin could not visit feedback page.")
+        raise MumbleException(f"Admin could not post message or visit feedback page.")
 
 if __name__ == "__main__":
     checker.run()
