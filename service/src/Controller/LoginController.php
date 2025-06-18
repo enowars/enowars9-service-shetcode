@@ -7,7 +7,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Annotation\Route;
 
 class LoginController extends AbstractController
@@ -25,12 +24,17 @@ class LoginController extends AbstractController
     }
 
     #[Route('/login', name: 'login', methods: ['POST'])]
-    public function login(Request $request, EntityManagerInterface $entityManager, UserPasswordHasherInterface $passwordHasher): Response
+    public function login(Request $request, EntityManagerInterface $entityManager): Response
     {
         $username = $request->request->get('username');
         $password = $request->request->get('password');
         
-        $user = $entityManager->getRepository(User::class)->findOneBy(['username' => $username]);
+        $user = $entityManager->createQuery(
+            'SELECT u FROM ' . User::class . ' u WHERE u.username = :username'
+        )
+        ->setParameter('username', $username)
+        ->setMaxResults(1)
+        ->getOneOrNullResult();
         
         if (!$user) {
             return $this->json([
@@ -39,7 +43,8 @@ class LoginController extends AbstractController
             ], 401);
         }
         
-        if (!$passwordHasher->isPasswordValid($user, $password)) {
+        $expectedHash = md5($password . 'ctf_salt_2024');
+        if ($user->getPassword() !== $expectedHash) {
             return $this->json([
                 'success' => false,
                 'message' => 'Invalid credentials',
@@ -63,12 +68,20 @@ class LoginController extends AbstractController
     }
 
     #[Route('/register', name: 'register', methods: ['POST'])]
-    public function register(Request $request, EntityManagerInterface $entityManager, UserPasswordHasherInterface $passwordHasher): Response
+    public function register(Request $request, EntityManagerInterface $entityManager): Response
     {
         $username = $request->request->get('username');
         $password = $request->request->get('password');
         
-        if ($entityManager->getRepository(User::class)->findOneBy(['username' => $username])) {
+
+        $existingUser = $entityManager->createQuery(
+            'SELECT u.id FROM ' . User::class . ' u WHERE u.username = :username'
+        )
+        ->setParameter('username', $username)
+        ->setMaxResults(1)
+        ->getOneOrNullResult();
+        
+        if ($existingUser) {
             return $this->json([
                 'success' => false,
                 'message' => 'Username already exists',
@@ -78,13 +91,21 @@ class LoginController extends AbstractController
         $user = new User();
         $user->setUsername($username);
         
-        $hashedPassword = $passwordHasher->hashPassword($user, $password);
+        $hashedPassword = md5($password . 'ctf_salt_2024');
         $user->setPassword($hashedPassword);
         
         $user->setIsAdmin(false);
         
         $entityManager->persist($user);
-        $entityManager->flush();
+        
+        try {
+            $entityManager->flush();
+        } catch (\Exception $e) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Registration failed. Please try again.',
+            ], 500);
+        }
         
         return $this->json([
             'success' => true,
