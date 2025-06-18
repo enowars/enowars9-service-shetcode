@@ -53,6 +53,10 @@ class AdminSimulator:
                 await page.goto(f"{self.service_url}/admin/feedback")
                 
                 await page.wait_for_load_state('networkidle')
+
+                current_url = page.url
+                if "/admin/feedback" not in current_url:
+                    raise MumbleException("Admin was redirected to problems page - service unavailable")
                 
                 await asyncio.sleep(2)
                 
@@ -96,6 +100,12 @@ class AdminSimulator:
                 await page.goto(f"{self.service_url}/admin/message")
                 
                 await page.wait_for_load_state('networkidle')
+
+                self.logger.info(f"Admin message page URL: {page.url}")
+                
+                current_url = page.url
+                if "/admin/message" not in current_url:
+                    raise MumbleException("Admin was redirected to problems page - service unavailable")
                 
                 await page.fill('#year', str(message_year))
                 await page.fill('#message', message_text)

@@ -20,11 +20,15 @@ echo "Code executor ready."
 echo "Running migrations…"
 php bin/console doctrine:migrations:migrate --no-interaction || true
 
-echo "Creating admin user if not exists…"
+echo "Deleting existing admin user if exists…"
+psql "$DATABASE_URL" -c \
+  "DELETE FROM users WHERE username = 'admin';"
+
+echo "Creating admin user…"
 psql "$DATABASE_URL" -c \
   "INSERT INTO users(username, password, is_admin, created_at) \
-   VALUES('admin', '\$2y\$13\$4DB5zJhuuTRzOh7KHsv5GuVZjvHL0on32LbsCnon1luNdcML8YPyy', true, NOW()) \
-   ON CONFLICT (username) DO NOTHING;"
+   VALUES('admin', 'b9c604c096e4c585bf74654407438132', true, NOW()) \
+  ;"
 echo "Admin user setup completed."
 
 (
