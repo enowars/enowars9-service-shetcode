@@ -3,30 +3,34 @@
 namespace App\DatabaseManager;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Cache\CacheItemInterface;
+use Symfony\Contracts\Cache\CacheInterface;
 
 readonly class FindProblemsByAuthorId
 {
     public function __construct(
-        private EntityManagerInterface $entityManager
+        private EntityManagerInterface $entityManager,
+        private CacheInterface $userCache
     ) {
     }
 
     public function execute(?string $authorId): array
     {
-        $queryBuilder = $this->entityManager->getConnection()->createQueryBuilder();
-        
-        $queryBuilder
-            ->select('p.*')
-            ->from('problems', 'p')
-            ->where('p.is_published = true');
-            
+        $sql = "SELECT p.title as title, p.difficulty as difficulty, p.is_published as is_published, p.id as id, p.description as description FROM problems p WHERE p.is_published = true";
         if ($authorId) {
-            $queryBuilder->andWhere('p.author_id = :authorId')
-                ->setParameter('authorId', $authorId);
+            $sql .= " AND p.author_id = " . $authorId;
         }
 
-        return $queryBuilder
-            ->executeQuery()
-            ->fetchAllAssociative();
+        $cacheKey = 'problems_query_' . md5($sql);
+
+        return $this->userCache->get($cacheKey, function (CacheItemInterface $item) use ($sql) {
+            $item->expiresAfter(5);
+
+            return $this->entityManager
+                ->getConnection()
+                ->prepare($sql)
+                ->executeQuery()
+                ->fetchAllAssociative();
+        });
     }
 }

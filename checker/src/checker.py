@@ -17,7 +17,7 @@ from enochecker3 import (
     FlagSearcher,
     BaseCheckerTaskMessage,
     PutflagCheckerTaskMessage,
-    GetflagCheckerTaskMessage,
+    GetflagCheckerTaskMessage, 
     PutnoiseCheckerTaskMessage,
     GetnoiseCheckerTaskMessage,
     HavocCheckerTaskMessage,
@@ -28,6 +28,7 @@ from enochecker3 import (
     AsyncSocket,
 )
 from enochecker3.utils import assert_equals, assert_in
+import admin_simulator
 
 """
 Checker config
@@ -47,9 +48,12 @@ class Connection:
         self.client = client
         self.logger = logger
 
+        self.JSON_HEADERS = {"Accept": "application/json"}
+
     async def register_user(self, username: str, password: str):
         response = await self.client.post(
             "/register",
+            headers=self.JSON_HEADERS,
             data={"username": username, "password": password}
         )
         data = response.json()
@@ -60,6 +64,7 @@ class Connection:
     async def login_user(self, username: str, password: str):
         response = await self.client.post(
             "/login",
+            headers=self.JSON_HEADERS,
             data={"username": username, "password": password}
         )
         data = response.json()
@@ -146,10 +151,9 @@ async def putflag_solutions(
     problem_title = generate_title()
     problem_description, test_cases_json, expected_outputs_json = generate_problem_from_scenario()
 
-    headers = {"Accept": "application/json"}
     response = await conn.client.post(
             "/problems/create",
-            headers=headers,
+            headers=conn.JSON_HEADERS,
             data={
                 "title": problem_title,
                 "description": problem_description,
@@ -158,7 +162,7 @@ async def putflag_solutions(
                 "expectedOutputs": expected_outputs_json,
                 "isPublished": "true",
                 "isPrivate": "false",
-                "maxRuntime": "1.0"
+                "maxRuntime": "0.2"
             }
         )
 
@@ -502,21 +506,32 @@ async def havoc_feedback_image(task: HavocCheckerTaskMessage, client: AsyncClien
     if response.status_code not in [200, 201, 302]:
         raise MumbleException(f"Failed to submit feedback: {response.status_code}")
     
-    await asyncio.sleep(2)
+    await asyncio.sleep(0.2)
     
     response = await conn.client.get("/feedback")
     
     if response.status_code not in [200, 201, 302]:
         raise MumbleException(f"Failed to retrieve feedback page: {response.status_code}")
     
-    content = response.text
-    logger.debug(f"Feedback page content: {content}")
-    
-    if "Test feedback with simple SVG image" in content:
+    if "Test feedback with simple SVG image" in response.text:
         logger.info("Simple SVG feedback successfully appears on feedback page")
     else:
         logger.warning("Simple SVG feedback does not appear on feedback page")
         raise MumbleException("Can't submit feedback with SVG image")
+
+@checker.havoc(1)
+async def havoc_admin_simulation(task: HavocCheckerTaskMessage, client: AsyncClient, logger: LoggerAdapter) -> None:
+    logger.info("Starting admin simulation havoc test...")
+
+    simulator = admin_simulator.AdminSimulator(client, logger)
+    
+    try:
+        await simulator.load_feedback_page()
+        await simulator.post_new_message()
+        logger.info("Admin simulation completed successfully")
+        
+    except Exception as e:
+        raise MumbleException(f"Admin could not post message or visit feedback page.")
 
 if __name__ == "__main__":
     checker.run()

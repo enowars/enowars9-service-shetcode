@@ -10,7 +10,7 @@ use Doctrine\Migrations\AbstractMigration;
 /**
  * Auto-generated Migration: Please modify to your needs!
  */
-final class Version20250501204230 extends AbstractMigration
+final class Version20250618100241 extends AbstractMigration
 {
     public function getDescription(): string
     {
@@ -21,10 +21,13 @@ final class Version20250501204230 extends AbstractMigration
     {
         // this up() migration is auto-generated, please modify it to your needs
         $this->addSql(<<<'SQL'
-            DROP INDEX uniq_1483a5e9e7927c74
+            CREATE TABLE admin_messages (id SERIAL NOT NULL, admin_id INT NOT NULL, message TEXT NOT NULL, year INT NOT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, PRIMARY KEY(id))
         SQL);
         $this->addSql(<<<'SQL'
-            ALTER TABLE users DROP email
+            CREATE INDEX IDX_4FA21990642B8210 ON admin_messages (admin_id)
+        SQL);
+        $this->addSql(<<<'SQL'
+            ALTER TABLE admin_messages ADD CONSTRAINT FK_4FA21990642B8210 FOREIGN KEY (admin_id) REFERENCES users (id) NOT DEFERRABLE INITIALLY IMMEDIATE
         SQL);
     }
 
@@ -35,10 +38,10 @@ final class Version20250501204230 extends AbstractMigration
             CREATE SCHEMA public
         SQL);
         $this->addSql(<<<'SQL'
-            ALTER TABLE users ADD email VARCHAR(180) NOT NULL
+            ALTER TABLE admin_messages DROP CONSTRAINT FK_4FA21990642B8210
         SQL);
         $this->addSql(<<<'SQL'
-            CREATE UNIQUE INDEX uniq_1483a5e9e7927c74 ON users (email)
+            DROP TABLE admin_messages
         SQL);
     }
 }

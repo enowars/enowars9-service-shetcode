@@ -8,13 +8,27 @@ services:
     depends_on:
       database:
         condition: service_healthy
+      code-executor:
+        condition: service_started
+      redis:
+        condition: service_started
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@database:5432/${POSTGRES_DB:-app}?serverVersion=${POSTGRES_VERSION:-16}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@database:5432/${POSTGRES_DB:-app}"
+      CODE_EXECUTOR_HOST: "code-executor"
+      CODE_EXECUTOR_PORT: "2376"
+      REDIS_URL: "redis://redis:6379"
+      APP_ENV: "prod"
+      APP_DEBUG: "0"
+      # PHP-FPM optimization
+      PHP_FPM_PM: "dynamic"
+      PHP_FPM_PM_MAX_CHILDREN: "50"
+      PHP_FPM_PM_START_SERVERS: "10"
+      PHP_FPM_PM_MIN_SPARE_SERVERS: "5"
+      PHP_FPM_PM_MAX_SPARE_SERVERS: "15"
+      PHP_FPM_PM_MAX_REQUESTS: "500"
     restart: unless-stopped
-    mem_limit: 1g
-    cpus: 1
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - submissions_data:/var/www/html/submissions
 
   database:
     image: postgres:${POSTGRES_VERSION:-16}-alpine
@@ -29,18 +43,47 @@ services:
       start_period: 10s
     volumes:
       - database_data:/var/lib/postgresql/data:rw
+    mem_limit: 1g
 
-  adminbot:
-    build:
-      context: .
-      dockerfile: docker/adminbot/Dockerfile
-    depends_on:
-      - php
-      - database
-    environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@database:5432/${POSTGRES_DB:-app}"
-      APP_URL:         "http://php:80"
+  redis:
+    image: redis:7-alpine
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1000
+      --appendonly yes
+      --appendfsync everysec
+    volumes:
+      - redis_data:/data
+    mem_limit: 512m
     restart: unless-stopped
+
+  code-executor:
+    image: docker:24-dind
+    privileged: true
+    environment:
+      DOCKER_TLS_CERTDIR: ""
+    ports:
+      - "2376:2376"
+    volumes:
+      - code-executor-data:/var/lib/docker
+      - submissions_data:/submissions
+    restart: unless-stopped
+    mem_limit: 4g
+    command: [
+      "dockerd", 
+      "--host=tcp://0.0.0.0:2376", 
+      "--host=unix:///var/run/docker.sock", 
+      "--tls=false",
+      "--default-runtime=runc",
+      "--containerd-namespace=moby",
+      "--max-concurrent-downloads=10",
+      "--max-concurrent-uploads=5"
+    ]
 
 volumes:
   database_data:
+  redis_data:
+  code-executor-data:
+  submissions_data:

@@ -31,18 +31,26 @@
                             <th>Title</th>
                             <th>Difficulty</th>
                             <th>Created By</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for problem in ownProblems %}
                             <tr>
-                                <td>{{ problem.title }}</td>
+                                <td>
+                                    <a href="{{ path('private_problem_detail', {'id': problem.id}) }}" class="text-decoration-none">
+                                        {{ problem.title }}
+                                    </a>
+                                </td>
                                 <td>
                                     <span class="badge bg-{{ problem.difficulty == 'Easy' ? 'success' : (problem.difficulty == 'Medium' ? 'warning' : 'danger') }}">
                                         {{ problem.difficulty }}
                                     </span>
                                 </td>
                                 <td>{{ problem.author.username }}</td>
+                                <td>
+                                    <a href="{{ path('private_problem_detail', {'id': problem.id}) }}" class="btn btn-sm btn-primary">Solve</a>
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -63,18 +71,26 @@
                             <th>Title</th>
                             <th>Difficulty</th>
                             <th>Created By</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for problem in sharedProblems %}
                             <tr>
-                                <td>{{ problem.title }}</td>
+                                <td>
+                                    <a href="{{ path('private_problem_detail', {'id': problem.id}) }}" class="text-decoration-none">
+                                        {{ problem.title }}
+                                    </a>
+                                </td>
                                 <td>
                                     <span class="badge bg-{{ problem.difficulty == 'Easy' ? 'success' : (problem.difficulty == 'Medium' ? 'warning' : 'danger') }}">
                                         {{ problem.difficulty }}
                                     </span>
                                 </td>
                                 <td>{{ problem.author.username }}</td>
+                                <td>
+                                    <a href="{{ path('private_problem_detail', {'id': problem.id}) }}" class="btn btn-sm btn-primary">Solve</a>
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>

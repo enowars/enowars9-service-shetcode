@@ -36,11 +36,6 @@
                                                 <td colspan="4" class="text-center">
                                                     <div class="mb-2 mt-2">
                                                         <h5>Uploaded Image:</h5>
-                                                        {# 
-                                                            SECURITY VULNERABILITY: 
-                                                            Raw SVG is displayed without sanitization, 
-                                                            allowing script execution - THIS IS INTENTIONAL FOR THE CTF CHALLENGE 
-                                                        #}
                                                         <div class="svg-container">
                                                             {{ item.image|raw }}
                                                         </div>

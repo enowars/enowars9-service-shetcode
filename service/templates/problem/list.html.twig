@@ -4,6 +4,19 @@
 
 {% block body %}
 <div class="container">
+    {% if adminMessage %}
+        <div class="alert alert-warning border-warning mb-4" style="background: linear-gradient(45deg, #fff3cd, #fef8e6); border-left: 5px solid #856404;">
+            <div class="d-flex align-items-center">
+                <div class="me-3" style="font-size: 2rem;">🕰️</div>
+                <div class="flex-grow-1">
+                    <h5 class="alert-heading mb-2">📡 Transmission from {{ adminMessage.year }}</h5>
+                    <p class="mb-1" style="font-style: italic; font-size: 1.1rem;">"{{ adminMessage.message }}"</p>
+                    <small class="text-muted">— Received {{ adminMessage.createdAt|date('M j, Y H:i') }}</small>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>Coding Problems</h1>
         <div>
@@ -23,14 +36,7 @@
     <div class="mb-4">
         <form id="authorFilterForm" class="row g-3">
             <div class="col-md-4">
-                <select id="authorIdSelect" name="author_id" class="form-select">
-                    <option value="">All Authors</option>
-                    {% for user in users %}
-                        <option value="{{ user.id }}" {% if selectedAuthor == user.id %}selected{% endif %}>
-                            {{ user.username }}
-                        </option>
-                    {% endfor %}
-                </select>
+                <input type="text" id="authorIdSelect" name="author_id" class="form-control">
             </div>
             <div class="col-auto">
                 <button type="submit" class="btn btn-primary">Filter</button>
@@ -39,7 +45,6 @@
     </div>
     
     <div id="problems-container" class="row">
-        <!-- Problems will be loaded here via AJAX -->
     </div>
     
     <div id="no-problems" class="alert alert-info d-none">
@@ -54,15 +59,12 @@
         const noProblemsMessage = document.getElementById('no-problems');
         const authorFilterForm = document.getElementById('authorFilterForm');
         
-        // Function to load problems via AJAX
         function loadProblems(authorId = null) {
-            // Create form data for the POST request
             const formData = new FormData();
             if (authorId) {
                 formData.append('author_id', authorId);
             }
             
-            // Make POST request to the API endpoint
             fetch('{{ path('get_problems_data') }}', {
                 method: 'POST',
                 body: formData,
@@ -70,21 +72,16 @@
             })
             .then(response => response.json())
             .then(problems => {
-                // Clear the container
                 problemsContainer.innerHTML = '';
                 
                 let visibleCount = 0;
                 
-                // Render each problem
                 problems.forEach(problem => {
-                    // Check if problem is published - this is the client-side filter
                     const isPublished = problem.is_published == 1;
                     
-                    // Create problem card element
                     const problemCard = document.createElement('div');
                     problemCard.className = 'col-md-4 mb-4 problem-card';
                     
-                    // Only display published problems in the UI
                     if (!isPublished) {
                         problemCard.classList.add('d-none');
                     } else {
@@ -111,7 +108,6 @@
                     problemsContainer.appendChild(problemCard);
                 });
                 
-                // Show or hide the "no problems" message
                 if (visibleCount === 0) {
                     noProblemsMessage.classList.remove('d-none');
                 } else {
@@ -123,16 +119,13 @@
             });
         }
         
-        // Load problems on page load
         loadProblems();
         
-        // Handle author filter form submission
         authorFilterForm.addEventListener('submit', function(event) {
             event.preventDefault();
             const authorId = document.getElementById('authorIdSelect').value;
             loadProblems(authorId);
             
-            // Update URL with selected author (optional)
             if (authorId) {
                 history.pushState(null, '', '{{ path('problems_list') }}?author_id=' + authorId);
             } else {
