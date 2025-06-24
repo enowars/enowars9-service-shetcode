@@ -17,20 +17,27 @@ readonly class FindProblemsByAuthorId
     public function execute(?string $authorId): array
     {
         $sql = "SELECT p.title as title, p.difficulty as difficulty, p.is_published as is_published, p.id as id, p.description as description FROM problems p WHERE p.is_published = true";
+        $params = [];
+        
         if ($authorId) {
-            $sql .= " AND p.author_id = " . $authorId;
+            $sql .= " AND p.author_id = :author_id";
+            $params['author_id'] = $authorId;
         }
 
-        $cacheKey = 'problems_query_' . md5($sql);
+        $cacheKey = 'problems_query_' . md5($sql . serialize($params));
 
-        return $this->userCache->get($cacheKey, function (CacheItemInterface $item) use ($sql) {
+        return $this->userCache->get($cacheKey, function (CacheItemInterface $item) use ($sql, $params) {
             $item->expiresAfter(5);
 
-            return $this->entityManager
+            $stmt = $this->entityManager
                 ->getConnection()
-                ->prepare($sql)
-                ->executeQuery()
-                ->fetchAllAssociative();
+                ->prepare($sql);
+            
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            
+            return $stmt->executeQuery()->fetchAllAssociative();
         });
     }
 }

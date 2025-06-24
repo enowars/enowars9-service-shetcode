@@ -9,6 +9,38 @@ use Symfony\Component\Process\Process;
 
 class CodeExecutor
 {
+
+    private array $bannedPatterns = [
+        '/import\s+os/', 
+        '/from\s+os\s+import/', 
+        '/import\s+subprocess/', 
+        '/from\s+subprocess\s+import/',
+        '/import\s+commands/',
+        '/from\s+commands\s+import/',
+        '/import\s+pty/',
+        '/from\s+pty\s+import/',
+        '/import\s+pexpect/',
+        '/from\s+pexpect\s+import/',
+        '/import\s+glob/',
+        '/from\s+glob\s+import/',
+        '/import\s+shutil/',
+        '/from\s+shutil\s+import/',
+        '/import\s+pathlib/',
+        '/from\s+pathlib\s+import/',
+        '/\W__import__\s*\(/',
+        '/\Weval\s*\(/',
+        '/\Wexec\s*\(/',
+        '/\Wcompile\s*\(/',
+        '/open\s*\(.+,\s*[\'"]w[\'"]/',
+        '/open\s*\(.+,\s*[\'"]a[\'"]/',
+        '/\.system\s*\(/',
+        '/\.popen\s*\(/',
+        '/\.call\s*\(/',
+        '/\.Popen\s*\(/',
+        '/\.run\s*\(/'
+    ];
+
+
     private string $dockerHost;
     private string $dockerPort;
 
@@ -30,6 +62,18 @@ class CodeExecutor
     
     private function executeCode(string $code, Problem|PrivateProblem $problem, mixed $userId, string $type): array
     {
+        if (!$this->validateCode($code)) {
+            return [
+                [
+                    'input' => $problem->getTestCases()[0],
+                    'expected' => $problem->getExpectedOutputs()[0],
+                    'output' => 'Security violation: Prohibited functions or imports detected',
+                    'passed' => false,
+                    'error' => 'Security violation: Prohibited functions or imports detected'
+                ]
+            ];
+        }
+
         $maxRuntime = min($problem->getMaxRuntime(), 1);
         $results = [];
         $submissionsRoot = getcwd() . '/submissions';
@@ -131,5 +175,16 @@ class CodeExecutor
         }
 
         return $results;
+    }
+
+    private function validateCode(string $code): bool
+    {
+        foreach ($this->bannedPatterns as $pattern) {
+            if (preg_match($pattern, $code)) {
+                return false;
+            }
+        }
+        
+        return true;
     }
 }
