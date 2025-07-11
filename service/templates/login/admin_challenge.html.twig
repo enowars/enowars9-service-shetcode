@@ -1,0 +1,60 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Admin Challenge{% endblock %}
+
+{% block body %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Admin Challenge</h3>
+                </div>
+                <div class="card-body">
+                    <p class="mb-3">Decrypt the following challenge with your private key and enter the result:</p>
+                    <pre class="bg-light p-3 border rounded">{{ encrypted_challenge }}</pre>
+                    <form id="admin-challenge-form" method="post" action="{{ path('login') }}">
+                        <div class="mb-3">
+                            <label for="decrypted_challenge" class="form-label">Decrypted text</label>
+                            <input type="text" class="form-control" id="decrypted_challenge" name="decrypted_challenge" required autofocus />
+                        </div>
+                        <button type="submit" class="btn btn-primary">Submit</button>
+                    </form>
+                </div>
+            </div>
+            <div class="mt-4" id="response-message"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('admin-challenge-form');
+    if (!form) return;
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        fetch('{{ path('admin_challenge_submit') }}', {
+            method: 'POST',
+            body: new FormData(this),
+        })
+        .then(response => response.json().then(data => ({ response, data })))
+        .then(({ response, data }) => {
+            document.getElementById('response-message').innerHTML =
+                '<div class="alert alert-' + (data.success ? 'success' : 'danger') + '">' +
+                data.message + '</div>';
+
+            if (data.success && data.redirect) {
+                window.location.href = data.redirect;
+            }
+        })
+        .catch(error => {
+            document.getElementById('response-message').innerHTML =
+                '<div class="alert alert-danger">Error: ' + error.message + '</div>';
+            console.error('Error:', error);
+        });
+    });
+});
+</script>
+{% endblock %} 
