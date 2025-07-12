@@ -4,12 +4,21 @@ from httpx import AsyncClient
 from logging import LoggerAdapter
 from enochecker3 import MumbleException
 from message_generator import generate_admin_message
+import base64
+import os
 
 try:
     from playwright.async_api import async_playwright
     PLAYWRIGHT_AVAILABLE = True
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
+
+try:
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import padding
+    CRYPTO_AVAILABLE = True
+except ImportError:
+    CRYPTO_AVAILABLE = False
 
 
 class AdminSimulator:
@@ -26,6 +35,44 @@ class AdminSimulator:
             return
         
         self.logger.info("Starting headless browser admin simulation...")
+
+    async def _solve_admin_challenge(self, page):
+        challenge_form = page.locator('#admin-challenge-form')
+        if await challenge_form.count() == 0:
+            return
+
+        if not CRYPTO_AVAILABLE:
+            raise MumbleException("cryptography package missing for admin challenge")
+
+        encrypted_b64 = (await page.inner_text('pre')).strip()
+
+        try:
+            ciphertext = base64.b64decode(encrypted_b64)
+        except Exception as e:
+            raise MumbleException(f"Invalid base64 in challenge: {e}")
+
+        pem_path = os.path.join(os.path.dirname(__file__), 'admin_private.pem')
+        try:
+            with open(pem_path, 'rb') as f:
+                private_key = serialization.load_pem_private_key(f.read(), password=None)
+        except FileNotFoundError:
+            raise MumbleException("admin_private.pem not found for admin challenge")
+        except Exception as e:
+            raise MumbleException(f"Unable to load admin private key: {e}")
+
+        try:
+            plaintext = private_key.decrypt(
+                ciphertext,
+                padding.PKCS1v15()
+            )
+            decrypted_text = plaintext.decode()
+        except Exception as e:
+            raise MumbleException(f"RSA decryption failed: {e}")
+
+        await page.fill('#decrypted_challenge', decrypted_text)
+        await page.click('#admin-challenge-form button[type="submit"]')
+        await page.wait_for_url(f"{self.service_url}/problems", timeout=10_000)
+
 
     async def load_feedback_page(self) -> None:
         self.validate()
@@ -49,6 +96,8 @@ class AdminSimulator:
                 await page.click('#login-form button[type="submit"]')
                 
                 await page.wait_for_load_state('networkidle')
+
+                await self._solve_admin_challenge(page)
                 
                 await page.goto(f"{self.service_url}/admin/feedback")
                 
@@ -96,6 +145,8 @@ class AdminSimulator:
                 await page.click('#login-form button[type="submit"]')
                 
                 await page.wait_for_load_state('networkidle')
+
+                await self._solve_admin_challenge(page)
                 
                 await page.goto(f"{self.service_url}/admin/message")
                 

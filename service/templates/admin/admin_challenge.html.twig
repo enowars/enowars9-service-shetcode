@@ -13,7 +13,7 @@
                 <div class="card-body">
                     <p class="mb-3">Decrypt the following challenge with your private key and enter the result:</p>
                     <pre class="bg-light p-3 border rounded">{{ encrypted_challenge }}</pre>
-                    <form id="admin-challenge-form" method="post" action="{{ path('login') }}">
+                    <form id="admin-challenge-form" method="post" action="{{ path('admin_challenge_submit') }}">
                         <div class="mb-3">
                             <label for="decrypted_challenge" class="form-label">Decrypted text</label>
                             <input type="text" class="form-control" id="decrypted_challenge" name="decrypted_challenge" required autofocus />
