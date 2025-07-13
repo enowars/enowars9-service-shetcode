@@ -10,13 +10,6 @@ until php -r "new PDO('pgsql:host=database;dbname=${POSTGRES_DB:-app}', '${POSTG
 done
 echo "Database ready."
 
-echo "Waiting for code executor…"
-until timeout 5 bash -c "</dev/tcp/${CODE_EXECUTOR_HOST:-code-executor}/${CODE_EXECUTOR_PORT:-2376}" 2>/dev/null; do
-  echo "Waiting for code executor to be ready..."
-  sleep 2
-done
-echo "Code executor ready."
-
 echo "Running migrations…"
 php bin/console doctrine:migrations:migrate --no-interaction || true
 
