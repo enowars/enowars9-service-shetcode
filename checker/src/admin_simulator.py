@@ -95,21 +95,16 @@ class AdminSimulator:
                 
                 await page.click('#login-form button[type="submit"]')
                 
-                await page.wait_for_load_state('networkidle')
+                await page.wait_for_url(f"{self.service_url}/admin-challenge")
 
                 await self._solve_admin_challenge(page)
                 
                 await page.goto(f"{self.service_url}/admin/feedback")
                 
-                await page.wait_for_load_state('networkidle')
+                await page.wait_for_url(f"{self.service_url}/admin/feedback", timeout=2000)
 
-                current_url = page.url
-                if "/admin/feedback" not in current_url:
-                    raise MumbleException("Admin was redirected to problems page - service unavailable")
-                
-                await asyncio.sleep(2)
-                
-                self.logger.info("Admin simulation completed - any XSS scripts would have executed")
+                if "/admin/feedback" not in page.url:
+                    raise MumbleException(f"Admin was redirected to problems page - service unavailable")
                 
             except Exception as e:
                 self.logger.warning(f"Admin simulation failed: {e}")
@@ -164,8 +159,6 @@ class AdminSimulator:
                 await page.click('button[type="submit"]')
                 
                 await page.wait_for_load_state('networkidle')
-                
-                await asyncio.sleep(2)
                 
                 self.logger.info(f"Admin message posted successfully from year {message_year}")
                 
