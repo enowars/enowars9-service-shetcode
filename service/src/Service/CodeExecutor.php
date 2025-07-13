@@ -41,16 +41,15 @@ class CodeExecutor
             try {
                 $cmd = [
                     'nsjail',
-                    '--user', '1000',
-                    '--group', '1000',
+                    '--user',         '1000',
+                    '--group',        '1000',
                     '--disable_proc',
-                    '--bindmount',  "$userProblemDir:/sandbox",
-                    '--chroot',     '/',
-                    '--cwd',        '/sandbox',
-                    '--',
-                    '/usr/bin/python3',
-                    'solution.py',
-                ];
+                    '--bindmount_ro', '/var/www/html/public/submissions:/var/www/html/public/submissions',
+                    '--bindmount',    "$userProblemDir:/sandbox:rw",
+                    '--chroot',       '/',
+                    '--cwd',          '/sandbox',
+                    '--',             '/usr/bin/python3', 'solution.py',
+                  ];
                 
                 $proc = new Process(
                     $cmd,
