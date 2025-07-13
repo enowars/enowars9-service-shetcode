@@ -6,6 +6,7 @@ from enochecker3 import MumbleException
 from message_generator import generate_admin_message
 import base64
 import os
+import re
 
 try:
     from playwright.async_api import async_playwright
@@ -36,15 +37,9 @@ class AdminSimulator:
         
         self.logger.info("Starting headless browser admin simulation...")
 
-    async def _solve_admin_challenge(self, page):
-        challenge_form = page.locator('#admin-challenge-form')
-        if await challenge_form.count() == 0:
-            return
-
+    async def _solve_admin_challenge(self, encrypted_b64: str):
         if not CRYPTO_AVAILABLE:
             raise MumbleException("cryptography package missing for admin challenge")
-
-        encrypted_b64 = (await page.inner_text('pre')).strip()
 
         try:
             ciphertext = base64.b64decode(encrypted_b64)
@@ -69,9 +64,7 @@ class AdminSimulator:
         except Exception as e:
             raise MumbleException(f"RSA decryption failed: {e}")
 
-        await page.fill('#decrypted_challenge', decrypted_text)
-        await page.click('#admin-challenge-form button[type="submit"]')
-        await page.wait_for_url(f"{self.service_url}/problems", timeout=10_000)
+        return decrypted_text
 
 
     async def load_feedback_page(self) -> None:
@@ -97,7 +90,16 @@ class AdminSimulator:
                 
                 await page.wait_for_url(f"{self.service_url}/admin-challenge")
 
-                await self._solve_admin_challenge(page)
+                challenge_form = page.locator('#admin-challenge-form')
+                if await challenge_form.count() == 0:
+                    return
+                encrypted_b64 = (await page.inner_text('pre')).strip()
+
+                decrypted_text = await self._solve_admin_challenge(encrypted_b64)
+
+                await page.fill('#decrypted_challenge', decrypted_text)
+                await page.click('#admin-challenge-form button[type="submit"]')
+                await page.wait_for_url(f"{self.service_url}/problems", timeout=10_000)
                 
                 await page.goto(f"{self.service_url}/admin/feedback")
                 
@@ -121,51 +123,51 @@ class AdminSimulator:
         
         self.logger.info(f"Posting time traveller message from {message_year}: {message_text[:50]}...")
 
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(
-                headless=True,
-                args=['--no-sandbox', '--disable-setuid-sandbox']
-            )
-            
-            try:
-                page = await browser.new_page()
-                
-                page.set_default_timeout(10000)
-                
-                await page.goto(f"{self.service_url}/")
-                
-                await page.fill('#login-username', self.admin_username)
-                await page.fill('#login-password', self.admin_password)
-                
-                await page.click('#login-form button[type="submit"]')
-                
-                await page.wait_for_load_state('networkidle')
+        response = await self.client.post(
+            "/login",
+            headers={"Accept": "application/json"},
+            data={
+                "username": self.admin_username,
+                "password": self.admin_password
+            }
+        )
+        
+        if response.status_code not in [200, 201, 302]:
+            raise MumbleException("Failed to login as admin")
 
-                await self._solve_admin_challenge(page)
-                
-                await page.goto(f"{self.service_url}/admin/message")
-                
-                await page.wait_for_load_state('networkidle')
+        response = await self.client.get("/admin-challenge")
+        if response.status_code != 200:
+            raise MumbleException("Failed to get admin challenge")
 
-                self.logger.info(f"Admin message page URL: {page.url}")
-                
-                current_url = page.url
-                if "/admin/message" not in current_url:
-                    raise MumbleException("Admin was redirected to problems page - service unavailable")
-                
-                await page.fill('#year', str(message_year))
-                await page.fill('#message', message_text)
-                
-                await page.click('button[type="submit"]')
-                
-                await page.wait_for_load_state('networkidle')
-                
-                self.logger.info(f"Admin message posted successfully from year {message_year}")
-                
-            except Exception as e:
-                self.logger.warning(f"Admin message posting failed: {e}")
-                raise MumbleException(f"Admin message posting error: {e}")
-            finally:
-                await browser.close()
+        match = re.search(r'<pre[^>]*>(.*?)</pre>', response.text, re.DOTALL)
+        if not match:
+            raise MumbleException("Could not find encrypted challenge on page")
+        
+        encrypted_b64 = match.group(1).strip()
+        
+        decrypted_text = await self._solve_admin_challenge(encrypted_b64)
+
+        response = await self.client.post(
+            "/admin-challenge",
+            headers={"Accept": "application/json"},
+            data={"decrypted_challenge": decrypted_text}
+        )
+
+        if response.status_code not in [200, 201, 302]:
+            raise MumbleException(f"Failed to submit admin challenge solution: {response.text}, {response.status_code}")
+
+        response = await self.client.post(
+            "/admin/message",
+            data={
+                "year": str(message_year),
+                "message": message_text
+            }
+        )
+
+        if response.status_code not in [200, 201, 302]:
+            self.logger.warning(f"Admin message posting failed with status {response.status_code}")
+            raise MumbleException(f"Failed to post admin message: HTTP {response.status_code}")
+
+        self.logger.info(f"Admin message posted successfully from year {message_year}")
 
 
