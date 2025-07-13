@@ -26,6 +26,8 @@ services:
     privileged: true
     cap_add:
       - SYS_ADMIN
+    security_opt:
+      - apparmor:nsjail
     volumes:
       - submissions_data:/var/www/html/public/submissions
 
