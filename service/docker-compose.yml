@@ -8,14 +8,10 @@ services:
     depends_on:
       database:
         condition: service_healthy
-      code-executor:
-        condition: service_started
       redis:
         condition: service_started
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@database:5432/${POSTGRES_DB:-app}"
-      CODE_EXECUTOR_HOST: "code-executor"
-      CODE_EXECUTOR_PORT: "2376"
       REDIS_URL: "redis://redis:6379"
       APP_ENV: "prod"
       APP_DEBUG: "0"
@@ -27,8 +23,11 @@ services:
       PHP_FPM_PM_MAX_SPARE_SERVERS: "15"
       PHP_FPM_PM_MAX_REQUESTS: "500"
     restart: unless-stopped
+    privileged: true
+    cap_add:
+      - SYS_ADMIN
     volumes:
-      - submissions_data:/var/www/html/submissions
+      - submissions_data:/var/www/html/public/submissions
 
   database:
     image: postgres:${POSTGRES_VERSION:-16}-alpine
@@ -59,31 +58,7 @@ services:
     mem_limit: 512m
     restart: unless-stopped
 
-  code-executor:
-    image: docker:24-dind
-    privileged: true
-    environment:
-      DOCKER_TLS_CERTDIR: ""
-    ports:
-      - "2376:2376"
-    volumes:
-      - code-executor-data:/var/lib/docker
-      - submissions_data:/submissions
-    restart: unless-stopped
-    mem_limit: 4g
-    command: [
-      "dockerd", 
-      "--host=tcp://0.0.0.0:2376", 
-      "--host=unix:///var/run/docker.sock", 
-      "--tls=false",
-      "--default-runtime=runc",
-      "--containerd-namespace=moby",
-      "--max-concurrent-downloads=10",
-      "--max-concurrent-uploads=5"
-    ]
-
 volumes:
   database_data:
   redis_data:
-  code-executor-data:
   submissions_data:
