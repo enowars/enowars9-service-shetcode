@@ -58,7 +58,7 @@ class CodeExecutor
                     $inputData,
                     $maxRuntime
                 );
-                $proc->setTimeout($maxRuntime);
+                $proc->setTimeout($maxRuntime + 2);
                 $proc->run();
                 
                 $stdout = trim($proc->getOutput());
