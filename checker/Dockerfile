@@ -1,4 +1,4 @@
-FROM python:3.9-bullseye
+FROM python:3.13.5-slim-bookworm
 RUN apt-get update && apt-get upgrade -y 
 
 # Install Playwright system dependencies for Chromium

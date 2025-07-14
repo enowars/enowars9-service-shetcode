@@ -169,11 +169,19 @@ async def putflag_solutions(
     data = response.json()
     problem_id = data.get("problem_id")
     
+    input_a = random.randint(1, 100)
+    input_b = random.randint(1, 100)
     response = await conn.client.post(
         f"/problems/details/{problem_id}/submit",
-        data={"code": f"""print("{task.flag}")"""}
+        data={"code": f"""print("{task.flag}, You think you're smart, huh? {input_a} + {input_b}")"""}
     )
-    
+
+    try:
+        if f"{task.flag}, You think you're smart, huh? {input_a} + {input_b}" not in response.json()["results"][0]["output"]:
+            raise MumbleException(f"Submission of user code does not work.")
+    except Exception as e:
+        raise MumbleException("Submission of user code does not work.")
+
     if response.status_code != 200:
         raise MumbleException(f"Error posting flag")
     
