@@ -4,3 +4,4 @@ gunicorn
 faker
 httpx
 playwright
+cryptography

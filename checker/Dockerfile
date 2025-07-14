@@ -1,4 +1,4 @@
-FROM python:3.9-buster
+FROM python:3.9-bullseye
 RUN apt-get update && apt-get upgrade -y 
 
 # Install Playwright system dependencies for Chromium
@@ -24,11 +24,12 @@ RUN useradd -ms /bin/bash -u 1000 checker
 WORKDIR /checker
 
 COPY requirements.txt .
+COPY ./src .
+RUN chmod 644 ./admin_private.pem
 
 USER checker
 RUN python3 -m pip install -r requirements.txt
 RUN python3 -m playwright install chromium
 
-COPY ./src .
 
 ENTRYPOINT [ "/home/checker/.local/bin/gunicorn", "-c", "gunicorn.conf.py", "checker:app" ]

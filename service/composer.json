@@ -23,7 +23,8 @@
         "symfony/twig-bundle": "7.2.*",
         "symfony/yaml": "7.2.*",
         "predis/predis": "^2.0",
-        "symfony/cache": "7.2.*"
+        "symfony/cache": "7.2.*",
+        "symfony/monolog-bundle": "^3.9"
     },
     "config": {
         "allow-plugins": {

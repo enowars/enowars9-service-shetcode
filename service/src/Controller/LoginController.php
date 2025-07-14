@@ -50,8 +50,23 @@ class LoginController extends AbstractController
                 'message' => 'Invalid credentials',
             ], 401);
         }
-        
+
         $session = $request->getSession();
+        
+        if ($user->isAdmin()) {
+            $session->set('pre_auth_user_id', $user->getId());
+            return $this->json([
+                'success' => true,
+                'message' => 'Login successful',
+                'user' => [
+                    'id' => $user->getId(),
+                    'username' => $user->getUsername(),
+                    'isAdmin' => $user->isAdmin(),
+                ],
+                'redirect' => $this->generateUrl('admin_challenge')
+            ]);
+        }
+
         $session->set('user_id', $user->getId());
         $session->set('username', $user->getUsername());
         

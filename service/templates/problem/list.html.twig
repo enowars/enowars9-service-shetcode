@@ -36,7 +36,7 @@
     <div class="mb-4">
         <form id="authorFilterForm" class="row g-3">
             <div class="col-md-4">
-                <input type="text" id="authorIdSelect" name="author_id" class="form-control">
+                <input type="text" id="authorIdSelect" name="author_username" class="form-control" placeholder="Enter Author Username">
             </div>
             <div class="col-auto">
                 <button type="submit" class="btn btn-primary">Filter</button>
@@ -58,11 +58,20 @@
         const problemsContainer = document.getElementById('problems-container');
         const noProblemsMessage = document.getElementById('no-problems');
         const authorFilterForm = document.getElementById('authorFilterForm');
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialAuthorId = urlParams.get('author_username');
+        
+        if (initialAuthorId) {
+            document.getElementById('authorIdSelect').value = initialAuthorId;
+            loadProblems(initialAuthorId);
+        } else {
+            loadProblems();
+        }
         
         function loadProblems(authorId = null) {
             const formData = new FormData();
             if (authorId) {
-                formData.append('author_id', authorId);
+                formData.append('author_username', authorId);
             }
             
             fetch('{{ path('get_problems_data') }}', {
@@ -119,15 +128,13 @@
             });
         }
         
-        loadProblems();
-        
         authorFilterForm.addEventListener('submit', function(event) {
             event.preventDefault();
             const authorId = document.getElementById('authorIdSelect').value;
             loadProblems(authorId);
             
             if (authorId) {
-                history.pushState(null, '', '{{ path('problems_list') }}?author_id=' + authorId);
+                history.pushState(null, '', '{{ path('problems_list') }}?author_username=' + authorId);
             } else {
                 history.pushState(null, '', '{{ path('problems_list') }}');
             }

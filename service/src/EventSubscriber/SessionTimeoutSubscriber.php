@@ -17,7 +17,7 @@ class SessionTimeoutSubscriber implements EventSubscriberInterface
     private UrlGeneratorInterface $urlGenerator;
     private EntityManagerInterface $entityManager;
 
-    private const PUBLIC_ROUTES = ['home', 'login', 'register', 'logout'];
+    private const PUBLIC_ROUTES = ['home', 'login', 'register', 'logout', 'admin_challenge', 'admin_challenge_submit'];
 
     public function __construct(
         RequestStack $requestStack,

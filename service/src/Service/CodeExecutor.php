@@ -10,46 +10,6 @@ use Symfony\Component\Process\Process;
 class CodeExecutor
 {
 
-    private array $bannedPatterns = [
-        '/import\s+os/', 
-        '/from\s+os\s+import/', 
-        '/import\s+subprocess/', 
-        '/from\s+subprocess\s+import/',
-        '/import\s+commands/',
-        '/from\s+commands\s+import/',
-        '/import\s+pty/',
-        '/from\s+pty\s+import/',
-        '/import\s+pexpect/',
-        '/from\s+pexpect\s+import/',
-        '/import\s+glob/',
-        '/from\s+glob\s+import/',
-        '/import\s+shutil/',
-        '/from\s+shutil\s+import/',
-        '/import\s+pathlib/',
-        '/from\s+pathlib\s+import/',
-        '/\W__import__\s*\(/',
-        '/\Weval\s*\(/',
-        '/\Wexec\s*\(/',
-        '/\Wcompile\s*\(/',
-        '/open\s*\(.+,\s*[\'"]w[\'"]/',
-        '/open\s*\(.+,\s*[\'"]a[\'"]/',
-        '/\.system\s*\(/',
-        '/\.popen\s*\(/',
-        '/\.call\s*\(/',
-        '/\.Popen\s*\(/',
-        '/\.run\s*\(/'
-    ];
-
-
-    private string $dockerHost;
-    private string $dockerPort;
-
-    public function __construct()
-    {
-        $this->dockerHost = "code-executor";
-        $this->dockerPort = "2376";
-    }
-
     public function executeUserCode(string $code, Problem $problem, mixed $userId): array
     {
         return $this->executeCode($code, $problem, $userId, 'public');
@@ -62,18 +22,6 @@ class CodeExecutor
     
     private function executeCode(string $code, Problem|PrivateProblem $problem, mixed $userId, string $type): array
     {
-        if (!$this->validateCode($code)) {
-            return [
-                [
-                    'input' => $problem->getTestCases()[0],
-                    'expected' => $problem->getExpectedOutputs()[0],
-                    'output' => 'Security violation: Prohibited functions or imports detected',
-                    'passed' => false,
-                    'error' => 'Security violation: Prohibited functions or imports detected'
-                ]
-            ];
-        }
-
         $maxRuntime = min($problem->getMaxRuntime(), 1);
         $results = [];
         $submissionsRoot = getcwd() . '/submissions';
@@ -89,61 +37,49 @@ class CodeExecutor
 
         foreach ($problem->getTestCases() as $i => $input) {
             $inputData = is_string($input) ? $input : json_encode($input);
-            file_put_contents("$userProblemDir/input.txt", $inputData);
-
-            $containerName = 'runner_' . bin2hex(random_bytes(8));
 
             try {
-                $create = new Process([
-                    'docker', '-H', "tcp://{$this->dockerHost}:{$this->dockerPort}",
-                    'create',
-                    '--network', 'none',
-                    '--cpus', '0.5',
-                    '--memory', '64m',
-                    '--name', $containerName,
-                    '--user', '1000:1000',
-                    'python:3.10-slim',
-                    'bash', '-c',
-                    "timeout {$maxRuntime}s python submissions/$userId/{$problemIdentifier}/solution.py < submissions/$userId/{$problemIdentifier}/input.txt 2>&1"
-                ]);
-                $create->setTimeout(10);
-                $create->mustRun();
+                $cmd = [
+                    'nsjail',
+                    '--user',         '1000',
+                    '--group',        '1000',
+                    '--disable_proc',
+                    '--bindmount_ro', '/var/www/html/public/submissions:/var/www/html/public/submissions',
+                    '--bindmount',    "$userProblemDir:/sandbox:rw",
+                    '--chroot',       '/',
+                    '--cwd',          '/sandbox',
+                    '--',             '/usr/bin/python3', 'solution.py',
+                  ];
+                
+                $proc = new Process(
+                    $cmd,
+                    null,
+                    null,
+                    $inputData,
+                    $maxRuntime
+                );
+                $proc->setTimeout($maxRuntime);
+                $proc->run();
+                
+                $stdout = trim($proc->getOutput());
+                $stderr = trim($proc->getErrorOutput());
+                $clean = preg_replace(
+                    '/^\[.*\].*\R?/m',
+                    '',
+                    $stderr
+                );
 
-                $cp = new Process([
-                    'docker', '-H', "tcp://{$this->dockerHost}:{$this->dockerPort}",
-                    'cp', $submissionsRoot, "{$containerName}:/submissions"
-                ]);
-                $cp->setTimeout(10);
-                $cp->mustRun();
-
-                $start = new Process([
-                    'docker', '-H', "tcp://{$this->dockerHost}:{$this->dockerPort}",
-                    'start', '-a', $containerName
-                ]);
-                $start->setTimeout($maxRuntime + 2);
-                $start->run();
-
-                $stdout = trim($start->getOutput());
-                $stderr = trim($start->getErrorOutput());
-
-                $rm = new Process([
-                    'docker', '-H', "tcp://{$this->dockerHost}:{$this->dockerPort}",
-                    'rm', $containerName
-                ]);
-                $rm->setTimeout(10);
-                $rm->run();
-
-                if ($start->getExitCode() === 124) {
-                    throw new ProcessTimedOutException($start, ProcessTimedOutException::TYPE_GENERAL);
+                if ($proc->getExitCode() === 124) {
+                    throw new ProcessTimedOutException($proc, ProcessTimedOutException::TYPE_GENERAL);
                 }
 
-                if (!empty($stderr)) {
+                if (!empty($clean) && $clean !== '') {
                     $results[] = [
                         'input'    => $input,
                         'expected' => $problem->getExpectedOutputs()[$i],
-                        'output'   => null,
+                        'output'   => $clean,
                         'passed'   => false,
-                        'error'    => $stderr,
+                        'error'    => $clean,
                     ];
                 } else {
                     $passed = ($stdout === (string)$problem->getExpectedOutputs()[$i]);
@@ -166,25 +102,10 @@ class CodeExecutor
                     'passed'   => false,
                     'error'    => 'Time limit exceeded',
                 ];
-                (new Process([
-                    'docker', '-H', "tcp://{$this->dockerHost}:{$this->dockerPort}",
-                    'rm', '-f', $containerName
-                ]))->run();
                 return $results;
             }
         }
 
         return $results;
-    }
-
-    private function validateCode(string $code): bool
-    {
-        foreach ($this->bannedPatterns as $pattern) {
-            if (preg_match($pattern, $code)) {
-                return false;
-            }
-        }
-        
-        return true;
     }
 }

@@ -5,6 +5,8 @@ RUN apt-get update \
       libpq-dev \
       postgresql-client \
       git \
+      flex \
+      bison \
       unzip \
       nginx \
       bash \
@@ -20,6 +22,26 @@ RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /
  && apt-get update \
  && apt-get install -y docker-ce-cli \
  && rm -rf /var/lib/apt/lists/*
+
+ RUN apt-get update \
+     && apt-get install -y \
+          git \
+          gcc \
+          make \
+          libseccomp-dev \
+          pkg-config \
+          protobuf-compiler \
+          libprotobuf-dev \
+          libnl-3-dev \
+          libnl-route-3-dev \
+     && git clone https://github.com/google/nsjail /tmp/nsjail \
+     && make -C /tmp/nsjail \
+     && cp /tmp/nsjail/nsjail /usr/local/bin/ \
+     && rm -rf /tmp/nsjail \
+     && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /sandbox \
+     && chown 1000:1000 /sandbox
 
 WORKDIR /var/www/html
 

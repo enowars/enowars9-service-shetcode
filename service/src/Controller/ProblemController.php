@@ -21,13 +21,13 @@ class ProblemController extends AbstractController
     #[Route('/problems', name: 'problems_list', methods: ['GET'])]
     public function listProblems(Request $request, EntityManagerInterface $entityManager): Response
     {
-        $authorId = $request->query->get('author_id');
+        $authorUsername = $request->query->get('author_username');
         
         $adminMessage = $entityManager->getRepository(AdminMessage::class)
             ->findOneBy([], ['createdAt' => 'DESC']);
             
         $response = $this->render('problem/list.html.twig', [
-            'selectedAuthor' => $authorId,
+            'selectedAuthor' => $authorUsername,
             'adminMessage' => $adminMessage
         ]);
         $response->setSharedMaxAge(30);
@@ -38,9 +38,9 @@ class ProblemController extends AbstractController
     #[Route('/api/problems', name: 'get_problems_data', methods: ['POST'])]
     public function getProblemsData(Request $request, FindProblemsByAuthorId $findProblemsByAuthorId): JsonResponse
     {
-        $authorId = $request->request->get('author_id');
+        $authorUsername = $request->request->get('author_username');
         
-        return new JsonResponse($findProblemsByAuthorId->execute($authorId));
+        return new JsonResponse($findProblemsByAuthorId->execute($authorUsername));
     }
     
     #[Route('/problems/details/{id}', name: 'problem_detail', methods: ['GET'])]

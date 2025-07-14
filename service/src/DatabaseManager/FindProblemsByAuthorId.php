@@ -14,30 +14,18 @@ readonly class FindProblemsByAuthorId
     ) {
     }
 
-    public function execute(?string $authorId): array
+    public function execute(?string $authorUsername): array
     {
-        $sql = "SELECT p.title as title, p.difficulty as difficulty, p.is_published as is_published, p.id as id, p.description as description FROM problems p WHERE p.is_published = true";
-        $params = [];
+        $sql = "SELECT p.title as title, p.difficulty as difficulty, p.is_published as is_published, p.id as id, p.description as description FROM problems p JOIN users u ON p.author_id = u.id WHERE p.is_published = true";
+        $parameters = [];
         
-        if ($authorId) {
-            $sql .= " AND p.author_id = :author_id";
-            $params['author_id'] = $authorId;
+        if ($authorUsername) {
+            $sql .= " AND u.username = :username";
+            $parameters['username'] = $authorUsername;
         }
-
-        $cacheKey = 'problems_query_' . md5($sql . serialize($params));
-
-        return $this->userCache->get($cacheKey, function (CacheItemInterface $item) use ($sql, $params) {
-            $item->expiresAfter(5);
-
-            $stmt = $this->entityManager
-                ->getConnection()
-                ->prepare($sql);
-            
-            foreach ($params as $key => $value) {
-                $stmt->bindValue($key, $value);
-            }
-            
-            return $stmt->executeQuery()->fetchAllAssociative();
-        });
+        
+        $preparedStatement = $this->entityManager->getConnection()->prepare($sql);
+        $result = $preparedStatement->executeQuery($parameters);
+        return $result->fetchAllAssociative();
     }
 }
