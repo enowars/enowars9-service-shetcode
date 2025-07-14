@@ -14,6 +14,7 @@ RUN apt-get update \
       gnupg \
       lsb-release \
       python3 \
+      python3-restrictedpython \
  && docker-php-ext-install pdo pdo_pgsql \
  && rm -rf /var/lib/apt/lists/*
 

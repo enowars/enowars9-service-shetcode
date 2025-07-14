@@ -34,6 +34,7 @@ class CodeExecutor
         }
 
         file_put_contents("$userProblemDir/solution.py", $code);
+        file_put_contents("$userProblemDir/runner.py", file_get_contents(__DIR__ . '/../../docker/runner.py'));
 
         foreach ($problem->getTestCases() as $i => $input) {
             $inputData = is_string($input) ? $input : json_encode($input);
@@ -48,7 +49,7 @@ class CodeExecutor
                     '--bindmount',    "$userProblemDir:/sandbox:rw",
                     '--chroot',       '/',
                     '--cwd',          '/sandbox',
-                    '--',             '/usr/bin/python3', 'solution.py',
+                    '--',             '/usr/bin/python3', 'runner.py',
                   ];
                 
                 $proc = new Process(
