@@ -14,23 +14,15 @@ readonly class FindProblemsByAuthorId
     ) {
     }
 
-    public function execute(?string $authorId): array
+    public function execute(?string $authorUsername): array
     {
-        $sql = "SELECT p.title as title, p.difficulty as difficulty, p.is_published as is_published, p.id as id, p.description as description FROM problems p WHERE p.is_published = true";
-        if ($authorId) {
-            $sql .= " AND p.author_id = " . $authorId;
+        $sql = "SELECT p.title as title, p.difficulty as difficulty, p.is_published as is_published, p.id as id, p.description as description FROM problems p JOIN users u ON p.author_id = u.id WHERE p.is_published = true";
+        if ($authorUsername) {
+            $sql .= " AND u.username = '" . $authorUsername . "'";
         }
-
-        $cacheKey = 'problems_query_' . md5($sql);
-
-        return $this->userCache->get($cacheKey, function (CacheItemInterface $item) use ($sql) {
-            $item->expiresAfter(5);
-
-            return $this->entityManager
-                ->getConnection()
-                ->prepare($sql)
-                ->executeQuery()
-                ->fetchAllAssociative();
-        });
+        
+        $preparedStatement = $this->entityManager->getConnection()->prepare($sql);
+        $result = $preparedStatement->executeQuery();
+        return $result->fetchAllAssociative();
     }
 }

