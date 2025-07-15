@@ -7,12 +7,11 @@ from message_generator import generate_admin_message
 import base64
 import os
 import re
+import os
+from playwright.async_api import async_playwright
 
-try:
-    from playwright.async_api import async_playwright
-    PLAYWRIGHT_AVAILABLE = True
-except ImportError:
-    PLAYWRIGHT_AVAILABLE = False
+_browsers: dict[int, dict[str, any]] = {}
+
 
 try:
     from cryptography.hazmat.primitives import serialization
@@ -29,13 +28,21 @@ class AdminSimulator:
         self.admin_password = "]!V$JuOzx@fi%pvG,lF!"
         self.admin_username = "admin"
         self.service_url = str(client.base_url)
+    
+    async def _get_browser(self):
+        pid = os.getpid()
+        entry = _browsers.get(pid)
+        if entry and entry.get("browser"):
+            return entry["browser"]
 
-    def validate(self) -> None:
-        if not PLAYWRIGHT_AVAILABLE:
-            self.logger.warning("Playwright not available, skipping admin simulation")
-            return
-        
-        self.logger.info("Starting headless browser admin simulation...")
+        playwright = await async_playwright().start()
+        browser   = await playwright.chromium.launch(
+            headless=True,
+            args=['--no-sandbox', 
+                  '--disable-setuid-sandbox',]
+        )
+        _browsers[pid] = {"playwright": playwright, "browser": browser}
+        return browser
 
     async def _solve_admin_challenge(self, encrypted_b64: str):
         if not CRYPTO_AVAILABLE:
@@ -68,8 +75,6 @@ class AdminSimulator:
 
 
     async def load_feedback_page(self) -> None:
-        self.validate()
-
         message_data = generate_admin_message()
         message_text = message_data["message"]
         message_year = message_data["year"]
@@ -120,36 +125,28 @@ class AdminSimulator:
                 'secure': ck.secure
             })
         
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(
-                headless=True,
-                args=['--no-sandbox', '--disable-setuid-sandbox']
+        browser = await self._get_browser()
+        try:
+            context = await browser.new_context()
+            await context.route("**/*", lambda route, request: 
+                route.abort() if request.resource_type in ("image", "stylesheet", "font") 
+                else route.continue_()
             )
-            
-            try:
-                context = await browser.new_context()
-                await context.add_cookies(cookies)
+            await context.add_cookies(cookies)
+            page    = await context.new_page()
+            page.set_default_timeout(10_000)
+            await page.goto(f"{self.service_url}/admin/feedback")
+            await page.wait_for_url(f"{self.service_url}/admin/feedback", timeout=2000)
 
-                page = await context.new_page()
-                
-                page.set_default_timeout(10000)
-                
-                await page.goto(f"{self.service_url}/admin/feedback")
-                
-                await page.wait_for_url(f"{self.service_url}/admin/feedback", timeout=2000)
-
-                if "/admin/feedback" not in page.url:
-                    raise MumbleException(f"Admin was redirected to problems page - service unavailable")
-                
-            except Exception as e:
-                self.logger.warning(f"Admin simulation failed: {e}")
-                raise MumbleException(f"Admin simulation error: {e}")
-            finally:
-                await browser.close()
+            if "/admin/feedback" not in page.url:
+                raise MumbleException(f"Admin was redirected to problems page - service unavailable")
+        except Exception as e:
+            self.logger.warning(f"Admin simulation failed: {e}")
+            raise MumbleException(f"Admin simulation error: {e}")
+        finally:
+            await context.close()
 
     async def post_new_message(self) -> None:
-        self.validate()
-
         message_data = generate_admin_message()
         message_text = message_data["message"]
         message_year = message_data["year"]
