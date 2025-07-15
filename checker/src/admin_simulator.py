@@ -69,6 +69,56 @@ class AdminSimulator:
 
     async def load_feedback_page(self) -> None:
         self.validate()
+
+        message_data = generate_admin_message()
+        message_text = message_data["message"]
+        message_year = message_data["year"]
+        
+        self.logger.info(f"Posting time traveller message from {message_year}: {message_text[:50]}...")
+
+        response = await self.client.post(
+            "/login",
+            headers={"Accept": "application/json"},
+            data={
+                "username": self.admin_username,
+                "password": self.admin_password
+            }
+        )
+        
+        if response.status_code not in [200, 201, 302]:
+            raise MumbleException("Failed to login as admin")
+
+        response = await self.client.get("/admin-challenge")
+        if response.status_code != 200:
+            raise MumbleException("Failed to get admin challenge")
+
+        match = re.search(r'<pre[^>]*>(.*?)</pre>', response.text, re.DOTALL)
+        if not match:
+            raise MumbleException("Could not find encrypted challenge on page")
+        
+        encrypted_b64 = match.group(1).strip()
+        
+        decrypted_text = await self._solve_admin_challenge(encrypted_b64)
+
+        response = await self.client.post(
+            "/admin-challenge",
+            headers={"Accept": "application/json"},
+            data={"decrypted_challenge": decrypted_text}
+        )
+
+        if response.status_code not in [200, 201, 302]:
+            raise MumbleException(f"Failed to submit admin challenge solution: {response.text}, {response.status_code}")
+        
+        cookies = []
+        for ck in self.client.cookies.jar:
+            cookies.append({
+                'name': ck.name,
+                'value': ck.value,
+                'domain': ck.domain,
+                'path': ck.path,
+                'httpOnly': ck.secure,
+                'secure': ck.secure
+            })
         
         async with async_playwright() as p:
             browser = await p.chromium.launch(
@@ -77,29 +127,12 @@ class AdminSimulator:
             )
             
             try:
-                page = await browser.new_page()
+                context = await browser.new_context()
+                await context.add_cookies(cookies)
+
+                page = await context.new_page()
                 
                 page.set_default_timeout(10000)
-                
-                await page.goto(f"{self.service_url}/")
-                
-                await page.fill('#login-username', self.admin_username)
-                await page.fill('#login-password', self.admin_password)
-                
-                await page.click('#login-form button[type="submit"]')
-                
-                await page.wait_for_url(f"{self.service_url}/admin-challenge")
-
-                challenge_form = page.locator('#admin-challenge-form')
-                if await challenge_form.count() == 0:
-                    return
-                encrypted_b64 = (await page.inner_text('pre')).strip()
-
-                decrypted_text = await self._solve_admin_challenge(encrypted_b64)
-
-                await page.fill('#decrypted_challenge', decrypted_text)
-                await page.click('#admin-challenge-form button[type="submit"]')
-                await page.wait_for_url(f"{self.service_url}/problems", timeout=10_000)
                 
                 await page.goto(f"{self.service_url}/admin/feedback")
                 
