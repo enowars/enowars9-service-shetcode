@@ -98,8 +98,6 @@ async def putflag_drafts(
 
     await conn.register_user(username, password)
 
-    await conn.login_user(username, password)
-
     problem_title = "problem_" + "".join(
         random.choices(string.ascii_uppercase + string.digits, k=12)
     )
@@ -146,8 +144,6 @@ async def putflag_solutions(
     )
 
     await conn.register_user(username, password)
-
-    await conn.login_user(username, password)
 
     problem_title = generate_title()
     problem_description, test_cases_json, expected_outputs_json = generate_problem_from_scenario()
@@ -202,7 +198,6 @@ async def putflag_feedback(
     )
 
     await conn.register_user(username, password)
-    await conn.login_user(username, password)
 
     try:
         feedback_message = generate_feedback_message()
@@ -350,7 +345,6 @@ async def exploit_drafts(task: ExploitCheckerTaskMessage, searcher: FlagSearcher
 
     conn = Connection(logger, client)
     await conn.register_user(username, password)
-    await conn.login_user(username, password)
 
     response = await conn.client.post(
         "/api/problems",
@@ -386,7 +380,6 @@ async def exploit_solutions(task: ExploitCheckerTaskMessage,
 
     conn = Connection(logger, client)
     await conn.register_user(username, password)
-    await conn.login_user(username, password)
 
     problems_response = await conn.client.post("/api/problems")
     
@@ -430,7 +423,6 @@ async def exploit_feedback(task: ExploitCheckerTaskMessage,
     
     conn = Connection(logger, client)
     await conn.register_user(username, password)
-    await conn.login_user(username, password)
     
     malicious_js = f"""
         (async () => {{
