@@ -17,10 +17,10 @@ services:
       APP_DEBUG: "0"
       # PHP-FPM optimization
       PHP_FPM_PM: "dynamic"
-      PHP_FPM_PM_MAX_CHILDREN: "50"
-      PHP_FPM_PM_START_SERVERS: "10"
-      PHP_FPM_PM_MIN_SPARE_SERVERS: "5"
-      PHP_FPM_PM_MAX_SPARE_SERVERS: "15"
+      PHP_FPM_PM_MAX_CHILDREN: "20"
+      PHP_FPM_PM_START_SERVERS: "5"
+      PHP_FPM_PM_MIN_SPARE_SERVERS: "3"
+      PHP_FPM_PM_MAX_SPARE_SERVERS: "8"
       PHP_FPM_PM_MAX_REQUESTS: "500"
     restart: unless-stopped
     privileged: true
@@ -28,6 +28,8 @@ services:
       - SYS_ADMIN
     volumes:
       - submissions_data:/var/www/html/public/submissions
+    mem_limit: 1200m
+    cpus: 1.5
 
   database:
     image: postgres:${POSTGRES_VERSION:-16}-alpine
@@ -42,20 +44,22 @@ services:
       start_period: 10s
     volumes:
       - database_data:/var/lib/postgresql/data:rw
-    mem_limit: 1g
+    mem_limit: 600m
+    cpus: 0.5
 
   redis:
     image: redis:7-alpine
     command: >
       redis-server
-      --maxmemory 256mb
+      --maxmemory 128mb
       --maxmemory-policy allkeys-lru
       --save 60 1000
       --appendonly yes
       --appendfsync everysec
     volumes:
       - redis_data:/data
-    mem_limit: 512m
+    mem_limit: 200m
+    cpus: 0.1
     restart: unless-stopped
 
 volumes:

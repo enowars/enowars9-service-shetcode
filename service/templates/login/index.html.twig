@@ -94,7 +94,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 '<div class="alert alert-' + (data.success ? 'success' : 'danger') + '">' + 
                 data.message + '</div>';
                 
-            if (data.success) {
+            if (data.success && data.redirect) {
+                window.location.href = data.redirect;
+            } else {
                 this.reset();
             }
         })

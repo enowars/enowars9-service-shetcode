@@ -9,6 +9,7 @@ from httpx import AsyncClient
 from title_generator import generate_title, generate_problem_from_scenario, generate_funny_username
 from typing import Optional
 from logging import LoggerAdapter
+from svg_generator import generate_simple_svg, generate_feedback_message
 
 from enochecker3 import (
     ChainDB,
@@ -97,8 +98,6 @@ async def putflag_drafts(
 
     await conn.register_user(username, password)
 
-    await conn.login_user(username, password)
-
     problem_title = "problem_" + "".join(
         random.choices(string.ascii_uppercase + string.digits, k=12)
     )
@@ -145,8 +144,6 @@ async def putflag_solutions(
     )
 
     await conn.register_user(username, password)
-
-    await conn.login_user(username, password)
 
     problem_title = generate_title()
     problem_description, test_cases_json, expected_outputs_json = generate_problem_from_scenario()
@@ -201,18 +198,67 @@ async def putflag_feedback(
     )
 
     await conn.register_user(username, password)
-    await conn.login_user(username, password)
 
-    response = await conn.client.post(
-        "/feedback/submit",
-        data={
-            "description": task.flag,
-            "image": None
-        }
-    )
+    try:
+        feedback_message = generate_feedback_message()
+        selected_svg = generate_simple_svg(feedback_message)
+
+        import tempfile
+        import os
+        
+        temp_dir = tempfile.mkdtemp()
+        svg_path = os.path.join(temp_dir, "simple_test.svg")
+        
+        with open(svg_path, "w") as f:
+            f.write(selected_svg)
+
+        with open(svg_path, 'rb') as svg_file:
+            files = {'image': ('simple_test.svg', svg_file, 'image/svg+xml')}
+            data = {'description': task.flag}
+            
+            response = await conn.client.post(
+                "/feedback/submit",
+                data=data,
+                files=files
+            )
+        
+        os.unlink(svg_path)
+        os.rmdir(temp_dir)
+    except Exception as e:
+        os.unlink(svg_path)
+        os.rmdir(temp_dir)
+        raise MumbleException(f"Failed to submit feedback.")
 
     if response.status_code not in [200, 201, 302]:
-        raise MumbleException(f"Failed posting flag")
+        raise MumbleException(f"Failed to submit feedback: {response.status_code}")
+    
+    await asyncio.sleep(0.2)
+    
+    response = await conn.client.get("/feedback")
+    
+    if response.status_code not in [200, 201, 302]:
+        raise MumbleException(f"Failed to retrieve feedback page: {response.status_code}")
+    
+    escaped_flag = task.flag.replace('/', r'\/').replace('<', r'&lt;').replace('>', r'&gt;')
+    if (task.flag in response.text or escaped_flag in response.text):
+        logger.info("Feedback with SVG image successfully appears on feedback page")
+    else:
+        raise MumbleException(f"Can't submit feedback.")
+    
+
+    src = re.search(r'<img src="/feedback/image/(\d+)"', response.text)
+    if not src:
+        raise MumbleException(f"Feedback is not shown in the right format.")
+    src = src.group(1)
+    
+    response = await conn.client.get(f"/feedback/image/{src}")
+    
+    if response.status_code != 200:
+        raise MumbleException(f"Failed to retrieve feedback image: {response.status_code}")
+    
+    if feedback_message not in response.text:
+        raise MumbleException(f"Flag was not found in the feedback image.")
+    
     
     await db.set("userdata", (username, password))
 
@@ -299,7 +345,6 @@ async def exploit_drafts(task: ExploitCheckerTaskMessage, searcher: FlagSearcher
 
     conn = Connection(logger, client)
     await conn.register_user(username, password)
-    await conn.login_user(username, password)
 
     response = await conn.client.post(
         "/api/problems",
@@ -335,7 +380,6 @@ async def exploit_solutions(task: ExploitCheckerTaskMessage,
 
     conn = Connection(logger, client)
     await conn.register_user(username, password)
-    await conn.login_user(username, password)
 
     problems_response = await conn.client.post("/api/problems")
     
@@ -379,7 +423,6 @@ async def exploit_feedback(task: ExploitCheckerTaskMessage,
     
     conn = Connection(logger, client)
     await conn.register_user(username, password)
-    await conn.login_user(username, password)
     
     malicious_js = f"""
         (async () => {{
@@ -473,61 +516,6 @@ async def exploit_feedback(task: ExploitCheckerTaskMessage,
     raise MumbleException("No flag found exploit(2).")
 
 @checker.havoc(0)
-async def havoc_feedback_image(task: HavocCheckerTaskMessage, client: AsyncClient, logger: LoggerAdapter) -> None:
-    conn = Connection(logger, client)
-    username: str = generate_funny_username()
-    password: str = "checker_" + "".join(
-        random.choices(string.ascii_uppercase + string.digits, k=12)
-    )
-
-    await conn.register_user(username, password)
-    await conn.login_user(username, password)
-
-    simple_svg = """<?xml version="1.0" encoding="UTF-8"?>
-<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="50" cy="50" r="40" stroke="black" stroke-width="3" fill="red" />
-    <text x="50" y="55" text-anchor="middle" fill="white" font-family="Arial" font-size="12">Test</text>
-</svg>"""
-    
-    import tempfile
-    import os
-    
-    temp_dir = tempfile.mkdtemp()
-    svg_path = os.path.join(temp_dir, "simple_test.svg")
-    
-    with open(svg_path, "w") as f:
-        f.write(simple_svg)
-    
-    with open(svg_path, 'rb') as svg_file:
-        files = {'image': ('simple_test.svg', svg_file, 'image/svg+xml')}
-        data = {'description': 'Test feedback with simple SVG image'}
-        
-        response = await conn.client.post(
-            "/feedback/submit",
-            data=data,
-            files=files
-        )
-    
-    os.unlink(svg_path)
-    os.rmdir(temp_dir)
-
-    if response.status_code not in [200, 201, 302]:
-        raise MumbleException(f"Failed to submit feedback: {response.status_code}")
-    
-    await asyncio.sleep(0.2)
-    
-    response = await conn.client.get("/feedback")
-    
-    if response.status_code not in [200, 201, 302]:
-        raise MumbleException(f"Failed to retrieve feedback page: {response.status_code}")
-    
-    if "Test feedback with simple SVG image" in response.text:
-        logger.info("Simple SVG feedback successfully appears on feedback page")
-    else:
-        logger.warning("Simple SVG feedback does not appear on feedback page")
-        raise MumbleException("Can't submit feedback with SVG image")
-
-@checker.havoc(1)
 async def havoc_admin_simulation(task: HavocCheckerTaskMessage, client: AsyncClient, logger: LoggerAdapter) -> None:
     logger.info("Starting admin simulation havoc test...")
 
@@ -535,11 +523,17 @@ async def havoc_admin_simulation(task: HavocCheckerTaskMessage, client: AsyncCli
     
     try:
         await simulator.load_feedback_page()
+    except Exception as e:
+        raise MumbleException(f"Admin could not post message or visit feedback page: {e}")
+    
+    try:
         await simulator.post_new_message()
-        logger.info("Admin simulation completed successfully")
-        
     except Exception as e:
         raise MumbleException(f"Admin could not post message or visit feedback page.")
+    
+@checker.havoc(1)
+async def havoc(task: HavocCheckerTaskMessage, client: AsyncClient, logger: LoggerAdapter) -> None:
+    pass
 
 if __name__ == "__main__":
     checker.run()

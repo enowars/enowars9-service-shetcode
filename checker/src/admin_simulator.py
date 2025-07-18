@@ -44,16 +44,16 @@ class AdminSimulator:
         try:
             ciphertext = base64.b64decode(encrypted_b64)
         except Exception as e:
-            raise MumbleException(f"Invalid base64 in challenge: {e}")
+            raise MumbleException(f"Invalid base64 in challenge.")
 
         pem_path = os.path.join(os.path.dirname(__file__), 'admin_private.pem')
         try:
             with open(pem_path, 'rb') as f:
                 private_key = serialization.load_pem_private_key(f.read(), password=None)
         except FileNotFoundError:
-            raise MumbleException("admin_private.pem not found for admin challenge")
+            raise MumbleException("checker's side (1)")
         except Exception as e:
-            raise MumbleException(f"Unable to load admin private key: {e}")
+            raise MumbleException(f"checker's side (2)")
 
         try:
             plaintext = private_key.decrypt(
@@ -62,7 +62,7 @@ class AdminSimulator:
             )
             decrypted_text = plaintext.decode()
         except Exception as e:
-            raise MumbleException(f"RSA decryption failed: {e}")
+            raise MumbleException(f"checker's side (3)")
 
         return decrypted_text
 
@@ -90,11 +90,11 @@ class AdminSimulator:
 
         response = await self.client.get("/admin-challenge")
         if response.status_code != 200:
-            raise MumbleException("Failed to get admin challenge")
+            raise MumbleException("Failed to login as admin")
 
         match = re.search(r'<pre[^>]*>(.*?)</pre>', response.text, re.DOTALL)
         if not match:
-            raise MumbleException("Could not find encrypted challenge on page")
+            raise MumbleException("Could not find encrypted challenge on page (please use <pre> tag)")
         
         encrypted_b64 = match.group(1).strip()
         
@@ -107,7 +107,7 @@ class AdminSimulator:
         )
 
         if response.status_code not in [200, 201, 302]:
-            raise MumbleException(f"Failed to submit admin challenge solution: {response.text}, {response.status_code}")
+            raise MumbleException(f"Failed to login as admin")
         
         cookies = []
         for ck in self.client.cookies.jar:
@@ -139,11 +139,11 @@ class AdminSimulator:
                 await page.wait_for_url(f"{self.service_url}/admin/feedback", timeout=2000)
 
                 if "/admin/feedback" not in page.url:
-                    raise MumbleException(f"Admin was redirected to problems page - service unavailable")
+                    raise MumbleException(f"Failed to load feedback page")
                 
             except Exception as e:
                 self.logger.warning(f"Admin simulation failed: {e}")
-                raise MumbleException(f"Admin simulation error: {e}")
+                raise MumbleException(f"checker's side (4)")
             finally:
                 await browser.close()
 

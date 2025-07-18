@@ -122,6 +122,10 @@ class LoginController extends AbstractController
             ], 500);
         }
         
+        $session = $request->getSession();
+        $session->set('user_id', $user->getId());
+        $session->set('username', $user->getUsername());
+
         return $this->json([
             'success' => true,
             'message' => 'Registration successful',
@@ -129,6 +133,7 @@ class LoginController extends AbstractController
                 'id' => $user->getId(),
                 'username' => $user->getUsername(),
             ],
+            'redirect' => $this->generateUrl('problems_list')
         ]);
     }
     
