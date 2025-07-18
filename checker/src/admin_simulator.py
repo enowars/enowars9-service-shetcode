@@ -7,11 +7,12 @@ from message_generator import generate_admin_message
 import base64
 import os
 import re
-import os
-from playwright.async_api import async_playwright, Playwright, Browser, BrowserContext
 
-_browsers: dict[int, dict[str, any]] = {}
-
+try:
+    from playwright.async_api import async_playwright
+    PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
 
 try:
     from cryptography.hazmat.primitives import serialization
@@ -29,14 +30,21 @@ class AdminSimulator:
         self.admin_username = "admin"
         self.service_url = str(client.base_url)
 
+    def validate(self) -> None:
+        if not PLAYWRIGHT_AVAILABLE:
+            self.logger.warning("Playwright not available, skipping admin simulation")
+            return
+        
+        self.logger.info("Starting headless browser admin simulation...")
+
     async def _solve_admin_challenge(self, encrypted_b64: str):
         if not CRYPTO_AVAILABLE:
-            raise MumbleException("Cryptography package missing for admin challenge")
+            raise MumbleException("cryptography package missing for admin challenge")
 
         try:
             ciphertext = base64.b64decode(encrypted_b64)
         except Exception as e:
-            raise MumbleException(f"Invalid base64 in challenge")
+            raise MumbleException(f"Invalid base64 in challenge.")
 
         pem_path = os.path.join(os.path.dirname(__file__), 'admin_private.pem')
         try:
@@ -60,6 +68,8 @@ class AdminSimulator:
 
 
     async def load_feedback_page(self) -> None:
+        self.validate()
+
         message_data = generate_admin_message()
         message_text = message_data["message"]
         message_year = message_data["year"]
@@ -84,7 +94,7 @@ class AdminSimulator:
 
         match = re.search(r'<pre[^>]*>(.*?)</pre>', response.text, re.DOTALL)
         if not match:
-            raise MumbleException("Could not find encrypted challenge on page (please wrap it in <pre> tags)")
+            raise MumbleException("Could not find encrypted challenge on page (please use <pre> tag)")
         
         encrypted_b64 = match.group(1).strip()
         
@@ -110,59 +120,36 @@ class AdminSimulator:
                 'secure': ck.secure
             })
         
-        browser = None
-        context: Optional[BrowserContext] = None
-        try:
-            pid = os.getpid()
-            entry = _browsers.get(pid)
-            if not entry or not entry["browser"].is_connected():
-                if entry:
-                    await entry["browser"].close()
-                    await entry["playwright"].stop()
-
-                p: Playwright = await async_playwright().start()
-                b: Browser = await p.chromium.launch(
-                    headless=True,
-                    args=["--no-sandbox", "--disable-setuid-sandbox"]
-                )
-                _browsers[pid] = {"playwright": p, "browser": b}
-            browser = _browsers[pid]["browser"]
-        except Exception as e:
-            if browser:
-                await browser.close()
-            if _browsers[pid]["playwright"]:
-                await _browsers[pid]["playwright"].stop()
-            if pid in _browsers:
-                _browsers.pop(pid, None)
-            raise MumbleException(f"checker's side (4)")
-
-        try:
-            context: BrowserContext = await browser.new_context()
-            await context.route("**/*", lambda route, request: 
-                route.abort() if request.resource_type in ("image", "stylesheet", "font") 
-                else route.continue_()
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(
+                headless=True,
+                args=['--no-sandbox', '--disable-setuid-sandbox']
             )
-            await context.add_cookies(cookies)
-            page    = await context.new_page()
-            page.set_default_timeout(10_000)
-            await page.goto(f"{self.service_url}/admin/feedback")
-            await page.wait_for_url(f"{self.service_url}/admin/feedback", timeout=2000)
+            
+            try:
+                context = await browser.new_context()
+                await context.add_cookies(cookies)
 
-            if "/admin/feedback" not in page.url:
-                raise MumbleException(f"Admin was redirected to problems page - service unavailable")
-        except Exception as e:
-            if context:
-                await context.close()
-            if browser:
+                page = await context.new_page()
+                
+                page.set_default_timeout(10000)
+                
+                await page.goto(f"{self.service_url}/admin/feedback")
+                
+                await page.wait_for_url(f"{self.service_url}/admin/feedback", timeout=2000)
+
+                if "/admin/feedback" not in page.url:
+                    raise MumbleException(f"Failed to load feedback page")
+                
+            except Exception as e:
+                self.logger.warning(f"Admin simulation failed: {e}")
+                raise MumbleException(f"checker's side (4)")
+            finally:
                 await browser.close()
-            if pid in _browsers:
-                await _browsers[pid]["playwright"].stop()
-                _browsers.pop(pid, None)
-            raise MumbleException(f"checker's side (5)")
-        else:
-            await context.close()
 
     async def post_new_message(self) -> None:
+        self.validate()
+
         message_data = generate_admin_message()
         message_text = message_data["message"]
         message_year = message_data["year"]
@@ -200,7 +187,7 @@ class AdminSimulator:
         )
 
         if response.status_code not in [200, 201, 302]:
-            raise MumbleException(f"Failed to submit admin challenge solution.")
+            raise MumbleException(f"Failed to submit admin challenge solution: {response.text}, {response.status_code}")
 
         response = await self.client.post(
             "/admin/message",
