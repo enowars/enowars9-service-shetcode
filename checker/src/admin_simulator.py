@@ -110,6 +110,8 @@ class AdminSimulator:
                 'secure': ck.secure
             })
         
+        browser = None
+        context: Optional[BrowserContext] = None
         try:
             pid = os.getpid()
             entry = _browsers.get(pid)
@@ -153,9 +155,8 @@ class AdminSimulator:
                 await context.close()
             if browser:
                 await browser.close()
-            if _browsers[pid]["playwright"]:
-                await _browsers[pid]["playwright"].stop()
             if pid in _browsers:
+                await _browsers[pid]["playwright"].stop()
                 _browsers.pop(pid, None)
             raise MumbleException(f"checker's side (5)")
         else:
@@ -199,7 +200,7 @@ class AdminSimulator:
         )
 
         if response.status_code not in [200, 201, 302]:
-            raise MumbleException(f"Failed to submit admin challenge solution: {response.text}, {response.status_code}")
+            raise MumbleException(f"Failed to submit admin challenge solution.")
 
         response = await self.client.post(
             "/admin/message",
