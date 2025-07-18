@@ -56,16 +56,12 @@ class SessionTimeoutSubscriber implements EventSubscriberInterface
             return;
         }
 
-        if (!$session->has('user_validated')) {
-            $userId = $session->get('user_id');
-            $user = $this->entityManager->getRepository(User::class)->find($userId);
+        $userId = $session->get('user_id');
+        $user = $this->entityManager->getRepository(User::class)->find($userId);
 
-            if (!$user) {
-                $this->invalidateAndRedirect($session, $event);
-                return;
-            }
-
-            $session->set('user_validated', true);
+        if (!$user) {
+            $this->invalidateAndRedirect($session, $event);
+            return;
         }
     }
 
