@@ -36,6 +36,7 @@ class AdminController extends AbstractController
 
         $plain = bin2hex(random_bytes(16));
         $request->getSession()->set('admin_challenge_plain', $plain);
+        $request->getSession()->set('admin_challenge_issued_at', time());
 
         $pubKeyPath = $this->getParameter('kernel.project_dir') . '/config/admin_public.pem';
         $publicKey  = openssl_pkey_get_public(file_get_contents($pubKeyPath));
@@ -55,9 +56,11 @@ class AdminController extends AbstractController
         $preAuthUserId = $session->get('pre_auth_user_id');
         $decrypted = $request->request->get('decrypted_challenge');
         $plain = $session->get('admin_challenge_plain');
+        $issuedAt = $session->get('admin_challenge_issued_at');
 
-        if (!$preAuthUserId || !is_string($decrypted) || $decrypted === '' || !is_string($plain) || $plain === '') {
+        if (!$preAuthUserId || !is_string($decrypted) || $decrypted === '' || !is_string($plain) || $plain === '' || !is_int($issuedAt)) {
             $session->remove('admin_challenge_plain');
+            $session->remove('admin_challenge_issued_at');
             $session->remove('pre_auth_user_id');
             return $this->json([
                 'success' => false,
@@ -65,9 +68,20 @@ class AdminController extends AbstractController
             ], 401);
         }
 
+        if ((time() - $issuedAt) > 10) {
+            $session->remove('admin_challenge_plain');
+            $session->remove('admin_challenge_issued_at');
+            $session->remove('pre_auth_user_id');
+            return $this->json([
+                'success' => false,
+                'message' => 'Challenge expired',
+            ], 401);
+        }
+
         $isValid = function_exists('hash_equals') ? hash_equals($plain, $decrypted) : $plain === $decrypted;
         if (!$isValid) {
             $session->remove('admin_challenge_plain');
+            $session->remove('admin_challenge_issued_at');
             $session->remove('pre_auth_user_id');
             return $this->json([
                 'success' => false,
@@ -84,6 +98,7 @@ class AdminController extends AbstractController
         
         if (!$user) {
             $session->remove('admin_challenge_plain');
+            $session->remove('admin_challenge_issued_at');
             $session->remove('pre_auth_user_id');
             return $this->json([
                 'success' => false,
@@ -94,6 +109,7 @@ class AdminController extends AbstractController
         $session->set('user_id', $user->getId());
         $session->set('username', $user->getUsername());
         $session->remove('admin_challenge_plain');
+        $session->remove('admin_challenge_issued_at');
         $session->remove('pre_auth_user_id');
 
         return $this->json([
