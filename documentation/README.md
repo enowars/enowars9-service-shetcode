@@ -36,7 +36,7 @@
 
 ## Introduction
 
-ShetCode is a LeetCode-like platform built with Symfony and PostgreSQL. It supports public/private coding problems, sandboxed Python execution, and feedback submission. It is designed as a CTF service with multiple flagstores and intended vulnerabilities.
+ShetCode is a [LeetCode](https://leetcode.com/)-like platform built with Symfony and PostgreSQL. It supports public/private coding problems, sandboxed Python execution, and feedback submission. It is designed as a CTF service with multiple flagstores and intended vulnerabilities.
 
 ## Architecture
 
@@ -44,9 +44,6 @@ ShetCode is a LeetCode-like platform built with Symfony and PostgreSQL. It suppo
 - DB: PostgreSQL
 - Cache: Redis (for application caching)
 - Code execution: nsjail + Python3, per-submission directory under `public/submissions`
-
-Diagram [placeholder]:
-- [TODO] Add simple architecture diagram
 
 ## Installation
 
@@ -79,36 +76,37 @@ docker compose up --build -d
 
 ### Landing Page
 - `GET /` → login/register page if not authenticated, else redirect to problems.
-- [TODO] Add screenshot `./imgs/landing_page.png`
+![img](./imgs/registration.png)
 
 ### Registration
 - `POST /register` with `username`, `password`.
 - Password hashing: `md5(password + 'ctf_salt_2024')` (not too weak for CTF, but tricking AI).
-- [TODO] Screenshot `./imgs/registration_page.png`
 
 ### Login
 - `POST /login` with `username`, `password`.
 - User sessions store `user_id`, `username`.
 - Admins go through challenge step before becoming fully authenticated.
-- [TODO] Screenshot `./imgs/login.png`
 
 ### Problems
 
 #### Browse and Filter
-- `GET /problems` renders list page; optional filter by `author_username`.
+- `GET /problems` renders problems list page; optional filter by `author_username`.
 - `POST /api/problems` returns JSON list.
+![img](./imgs/problems.png)
 
 #### Create
 - `GET /problems/create` renders form.
 - `POST /problems/create` with:
-  - `title` (<= 255), `description` (<= 1000), `difficulty`
+  - `title` (<= 255), `description` (<= 1000), `difficulty` (easy, medium, hard)
   - `testCases` JSON array, `expectedOutputs` JSON array
   - `maxRuntime` (seconds, capped to 1)
   - `isPublished` boolean, `isPrivate` boolean
   - `accessUsers` comma-separated usernames (for private problems)
 
+![img](./imgs/create.png)
+
 #### Drafts
-- `GET /problems/drafts` lists your unpublished problems.
+- `GET /problems/drafts` lists user's unpublished problems.
 
 #### Edit and Publish
 - `GET /problems/{id}/edit`
@@ -119,16 +117,21 @@ docker compose up --build -d
 - `GET /private-problems` shows own and shared private problems.
 - `GET /private-problems/details/{id}` checks author or explicit access via `PrivateAccess`.
 
+![img](./imgs/private_problems.png)
+
 #### Problem Details and Submissions
 - `GET /problems/details/{id}` (or private variant) shows 0–2 example tests.
 - Editor preloads last `solution.py` from `public/submissions/{userId}/{problemId or private_id}/`.
-- `POST /problems/details/{id}/submit` executes Python code in nsjail.
+- `POST /problems/details/{id}/submit` saves new `solution.py` and executes Python code in nsjail.
+
+![img](./imgs/details.png)
 
 ### Feedback
 - `GET /feedback` to view/submit own feedback.
 - `POST /feedback/submit` with `description` and optional `image` (SVG/PNG/JPEG).
 - `GET /feedback/image/{id}` returns image bytes with content-type detection.
-- [TODO] Screenshot `./imgs/feedback.png`
+
+![img](./imgs/feedback.png)
 
 ### Admin Flow
 
@@ -137,13 +140,23 @@ docker compose up --build -d
 - Admin must decrypt using private key (checker has `admin_private.pem`) and submit within 10s.
 - `POST /admin-challenge` with `decrypted_challenge` promotes session to authenticated admin.
 
+![img](./imgs/challenge.png)
+
 #### Admin Dashboard
-- `GET /admin` shows dashboard with current “time traveller” message.
-- `GET/POST /admin/message` sets current message (wipes previous messages).
+- `GET /admin` shows dashboard with current “time traveller” message and available functionality.
+
+![img](./imgs/dashboard.png)
+
+#### Admin Message
+- `GET/POST /admin/message` shows/sets current message (wipes previous messages).
+
+
+![img](./imgs/message.png)
 
 #### Admin Feedback View
 - `GET /admin/feedback` lists all feedback; inlines uploaded image content.
-- [TODO] Screenshot `./imgs/admin_feedback.png`
+
+![img](./imgs/feedback_list.png)
 
 ## Flagstores
 
