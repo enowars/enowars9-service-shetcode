@@ -21,10 +21,6 @@
     - [Admin Challenge](#admin-challenge)
     - [Admin Dashboard](#admin-dashboard)
     - [Admin Feedback View](#admin-feedback-view)
-- [Flagstores](#flagstores)
-  - [FS0: Draft Problem Descriptions](#fs0-draft-problem-descriptions)
-  - [FS1: Saved Solution Files](#fs1-saved-solution-files)
-  - [FS2: Feedback and Admin View](#fs2-feedback-and-admin-view)
 - [Intended Exploits and Fixes](#intended-exploits-and-fixes)
   - [SQL Injection in Problems API](#sql-injection-in-problems-api)
   - [Sandbox Breakout via Code Execution](#sandbox-breakout-via-code-execution)
@@ -32,18 +28,18 @@
 - [File Structure](#file-structure)
   - [Service](#service)
   - [Checker](#checker)
-  - [Documentation Assets](#documentation-assets)
+  
 
 ## Introduction
 
-ShetCode is a [LeetCode](https://leetcode.com/)-like platform built with Symfony and PostgreSQL. It supports public/private coding problems, sandboxed Python execution, and feedback submission. It is designed as a CTF service with multiple flagstores and intended vulnerabilities.
+ShetCode is a [LeetCode](https://leetcode.com/)-like platform built with Symfony and PostgreSQL. It supports public/private coding problems, sandboxed Python execution, and feedback submission. It is designed as a CTF service with multiple flagstores and intentional vulnerabilities.
 
 ## Architecture
 
 - Web app: Symfony (PHP-FPM + Nginx)
 - DB: PostgreSQL
 - Cache: Redis (for application caching)
-- Code execution: nsjail + Python3, per-submission directory under `public/submissions`
+- Code execution: nsjail + Python3, with a separate directory for each submission under `public/submissions`
 
 ## Installation
 
@@ -59,7 +55,7 @@ export POSTGRES_PASSWORD=postgres
 export APP_SECRET=$(openssl rand -hex 32)
 
 docker compose up --build -d
-# Service: http://localhost:8055
+# Service is available under http://localhost:8055
 ```
 
 ### Running the Checker
@@ -69,18 +65,18 @@ git clone https://github.com/enowars/enowars9-service-shetcode.git
 cd enowars9-service-shetcode
 cd checker
 docker compose up --build -d
-# Checker HTTP: http://localhost:18055 (for ENOEngine)
+# Checker is available under http://localhost:18055 (for ENOEngine)
 ```
 
 ## Usage
 
 ### Landing Page
-- `GET /` → login/register page if not authenticated, else redirect to problems.
+- `GET /` → login/register page if the user is not authenticated; otherwise, redirects to problems.
 ![img](./imgs/registration.png)
 
 ### Registration
 - `POST /register` with `username`, `password`.
-- Password hashing: `md5(password + 'ctf_salt_2024')` (not too weak for CTF, but tricking AI).
+- Password hashing: `md5(password + 'ctf_salt_2024')` (not too weak for a CTF, but intended to trick AI models).
 
 ### Login
 - `POST /login` with `username`, `password`.
