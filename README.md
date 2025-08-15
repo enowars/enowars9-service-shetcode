@@ -1,7 +1,7 @@
-Sheetcode
+Shetcode
 ====================
 ShetCode is a LeetCode-like platform built with Symfony and PostgreSQL. It supports public/private coding problems, sandboxed Python execution, and feedback submission. It is designed as a CTF service with multiple flagstores and intended vulnerabilities.
------------------------------------------------
+
 
 # Installation and Setup
 ## Service
