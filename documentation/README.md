@@ -312,7 +312,7 @@ except Exception as e:
 
 ### Stored XSS via SVG in Admin Feedback
 #### Exploit
-The third flagstore is stored in submitted feedback. The service does not clean up the uploaded SVG images. A malicious script inside SVG can retrieve the flags from the page and send them to other server or somewhere in Shetcode service (the checker uses private problems for that).
+The third flagstore is stored in submitted feedback. The service does not clean up the uploaded SVG images. A malicious script inside SVG can retrieve the flags from the page and send them to other server or somewhere in Shetcode service (the checker uses private problems for that). The SVG scripts are loaded from checker's perspective with [playwright](https://playwright.dev/) headless browser.
 
 Example SVG image with malicious script:
 
@@ -477,3 +477,17 @@ checker
     ├── svg_generator.py             # SVG/image generator
     └── gunicorn.conf.py             # Gunicorn config for checker
 ```
+
+#### Checker's functions:
+The checker has several functions for storing flags and testing service's functionality. Some functions were combined (for example putflags and havocs) for optimization purposes.
+
+- `@checker.putflag(0)`: stores flag for the first flagstore (draft problem description).
+- `@checker.putflag(1)`: stores flag for the second flagstore (submitted solution). Also works as havoc, submitting code with printing flag some arithmetical operations and testing for expected result.
+- `@checker.putflag(2)`: stores flag for the third flagstore (submitted feedback). Also works as havoc, checking that the submitted flag and SVG images are stored and shown to a user in a right way.
+- `@checker.getflag(0)`: getting a flag for the first flagstore.
+- `@checker.getflag(1)`: getting a flag for the second flagstore.
+- `@checker.getflag(2)`: getting a flag for the third flagstore.
+- `@checker.exploit(0)`: example exploit for the first flagstore.
+- `@checker.exploit(1)`: example exploit for the second flagstore.
+- `@checker.exploit(2)`: example exploit for the third flagstore.
+- `@checker.havoc(0)`: admin simulator. This havoc posts a new message from admin's perspective and loads a feedback page with playwright headless browser to load SVG scripts. **PLEASE NOTE THAT each cold launch of headless browser requires resources that will rise with rise of services that are checked.** 

@@ -530,10 +530,6 @@ async def havoc_admin_simulation(task: HavocCheckerTaskMessage, client: AsyncCli
         await simulator.post_new_message()
     except Exception as e:
         raise MumbleException(f"Admin could not post message or visit feedback page.")
-    
-@checker.havoc(1)
-async def havoc(task: HavocCheckerTaskMessage, client: AsyncClient, logger: LoggerAdapter) -> None:
-    pass
 
 if __name__ == "__main__":
     checker.run()
