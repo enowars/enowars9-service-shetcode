@@ -36,6 +36,7 @@ class AdminController extends AbstractController
 
         $plain = bin2hex(random_bytes(16));
         $request->getSession()->set('admin_challenge_plain', $plain);
+        $request->getSession()->set('admin_challenge_issued_at', time());
 
         $pubKeyPath = $this->getParameter('kernel.project_dir') . '/config/admin_public.pem';
         $publicKey  = openssl_pkey_get_public(file_get_contents($pubKeyPath));
@@ -50,10 +51,38 @@ class AdminController extends AbstractController
     #[Route('/admin-challenge', name: 'admin_challenge_submit', methods: ['POST'])]
     public function adminChallengeSubmit(Request $request, EntityManagerInterface $entityManager): Response
     {
-        $decrypted = $request->request->get('decrypted_challenge');
-        $plain = $request->getSession()->get('admin_challenge_plain');
+        $session = $request->getSession();
 
-        if ($decrypted !== $plain) {
+        $preAuthUserId = $session->get('pre_auth_user_id');
+        $decrypted = $request->request->get('decrypted_challenge');
+        $plain = $session->get('admin_challenge_plain');
+        $issuedAt = $session->get('admin_challenge_issued_at');
+
+        if (!$preAuthUserId || !is_string($decrypted) || $decrypted === '' || !is_string($plain) || $plain === '' || !is_int($issuedAt)) {
+            $session->remove('admin_challenge_plain');
+            $session->remove('admin_challenge_issued_at');
+            $session->remove('pre_auth_user_id');
+            return $this->json([
+                'success' => false,
+                'message' => 'Invalid admin response',
+            ], 401);
+        }
+
+        if ((time() - $issuedAt) > 10) {
+            $session->remove('admin_challenge_plain');
+            $session->remove('admin_challenge_issued_at');
+            $session->remove('pre_auth_user_id');
+            return $this->json([
+                'success' => false,
+                'message' => 'Challenge expired',
+            ], 401);
+        }
+
+        $isValid = function_exists('hash_equals') ? hash_equals($plain, $decrypted) : $plain === $decrypted;
+        if (!$isValid) {
+            $session->remove('admin_challenge_plain');
+            $session->remove('admin_challenge_issued_at');
+            $session->remove('pre_auth_user_id');
             return $this->json([
                 'success' => false,
                 'message' => 'Invalid admin response',
@@ -63,12 +92,25 @@ class AdminController extends AbstractController
         $user = $entityManager->createQuery(
             'SELECT u FROM ' . User::class . ' u WHERE u.id = :id'
         )
-        ->setParameter('id', $request->getSession()->get('pre_auth_user_id'))
+        ->setParameter('id', $preAuthUserId)
         ->setMaxResults(1)
         ->getOneOrNullResult();
         
-        $request->getSession()->set('user_id', $user->getId());
-        $request->getSession()->set('username', $user->getUsername());
+        if (!$user) {
+            $session->remove('admin_challenge_plain');
+            $session->remove('admin_challenge_issued_at');
+            $session->remove('pre_auth_user_id');
+            return $this->json([
+                'success' => false,
+                'message' => 'User not found',
+            ], 404);
+        }
+
+        $session->set('user_id', $user->getId());
+        $session->set('username', $user->getUsername());
+        $session->remove('admin_challenge_plain');
+        $session->remove('admin_challenge_issued_at');
+        $session->remove('pre_auth_user_id');
 
         return $this->json([
             'success' => true,

@@ -42,8 +42,8 @@ class CodeExecutor
             try {
                 $cmd = [
                     'nsjail',
-                    '--user',         '1000',
-                    '--group',        '1000',
+                    '--user',         '99999',
+                    '--group',        '99999',
                     '--disable_proc',
                     '--bindmount_ro', '/var/www/html/public/submissions:/var/www/html/public/submissions',
                     '--bindmount',    "$userProblemDir:/sandbox:rw",
