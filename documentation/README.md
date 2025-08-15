@@ -154,20 +154,6 @@ docker compose up --build -d
 
 ![img](./imgs/feedback_list.png)
 
-## Flagstores
-
-### FS1: Saved Solution Files
-- User submission saved at `public/submissions/{user_id}/{problem_id}/solution.py`.
-- Problem detail preloads prior solution; viewing reveals content.
-- Exploit path: run Python to list/cat other users’ solutions via mounted `public/submissions`.
-- [TODO] Add PoC snippet and sample screenshot
-
-### FS2: Feedback and Admin View
-- User `description` appears on admin feedback table.
-- Uploaded SVG is inlined on admin page and can run scripts.
-- Exploit path: XSS exfiltrates flags by creating a private problem shared with attacker.
-- [TODO] Add PoC snippet and sample screenshot
-
 ## Intended Exploits and Fixes
 
 This service contains 3 Flagstores:
